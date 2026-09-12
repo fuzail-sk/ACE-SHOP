@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://ace-shop.onrender.com/api';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
