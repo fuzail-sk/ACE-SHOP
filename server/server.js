@@ -12,7 +12,7 @@ const app = express();
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://ace-shop-two.vercel.app'
+  'https://ace-shop-rmdssoe.vercel.app',
 ];
 app.use(
   cors({
