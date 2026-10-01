@@ -5,28 +5,28 @@ const orderSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: false
+      required: false,
     },
 
     customerEmail: {
       type: String,
       required: true,
       trim: true,
-      lowercase: true
+      lowercase: true,
     },
 
     customerDetails: {
       fullName: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
       },
 
       phone: {
         type: String,
         required: true,
-        trim: true
-      }
+        trim: true,
+      },
     },
 
     items: [
@@ -34,87 +34,112 @@ const orderSchema = new mongoose.Schema(
         product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'Product',
-          required: true
+          required: true,
         },
 
         name: {
           type: String,
-          required: true
+          required: true,
         },
 
         price: {
           type: Number,
           required: true,
-          min: 0
+          min: 0,
         },
 
         neckType: {
           type: String,
           enum: ['Collar'],
           required: true,
-          default: 'Collar'
+          default: 'Collar',
         },
 
         size: {
           type: String,
           required: true,
-          trim: true
-        }
-      }
+          trim: true,
+        },
+      },
     ],
 
     totalAmount: {
       type: Number,
       required: true,
-      min: 0
+      min: 0,
     },
 
     paymentMethod: {
       type: String,
       enum: ['UPI_MANUAL'],
-      default: 'UPI_MANUAL'
+      default: 'UPI_MANUAL',
     },
 
     paymentStatus: {
       type: String,
       enum: ['pending', 'paid', 'failed'],
-      default: 'pending'
+      default: 'pending',
     },
 
     orderStatus: {
       type: String,
       enum: [
         'pending_payment_verification',
-        'processing',
+        'accepted',
         'shipped',
         'delivered',
-        'cancelled'
+        'cancelled',
       ],
-      default: 'pending_payment_verification'
+      default: 'pending_payment_verification',
+    },
+
+    // ==========================================
+    // PAYMENT SCREENSHOT
+    // ==========================================
+
+    paymentScreenshot: {
+      data: {
+        type: Buffer,
+        select: false,
+      },
+
+      contentType: {
+        type: String,
+        trim: true,
+      },
+
+      originalName: {
+        type: String,
+        trim: true,
+      },
+
+      uploadedAt: {
+        type: Date,
+      },
     },
 
     paymentVerifiedAt: {
-      type: Date
+      type: Date,
     },
 
     paymentVerifiedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'User',
     },
 
     paymentRejectionReason: {
       type: String,
-      trim: true
+      trim: true,
     },
 
     invoiceNumber: {
       type: String,
       unique: true,
-      sparse: true
-    }
+      sparse: true,
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 

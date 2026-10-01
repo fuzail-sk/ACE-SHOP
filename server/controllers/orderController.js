@@ -7,81 +7,19 @@ import Order from '../models/Order.js';
 import { createInvoice } from '../services/invoiceService.js';
 import { sendOrderEmail } from '../services/emailService.js';
 
+
+// ==========================================
+// ALLOWED ORDER STATUSES
+// ==========================================
+
 const ALLOWED_ORDER_STATUSES = [
   'pending_payment_verification',
-  'processing',
+  'accepted',
   'shipped',
   'delivered',
   'cancelled'
 ];
 
-// ==========================================
-// VALIDATION
-// ==========================================
-
-function validateFullName(name) {
-  const value = String(name || '').trim();
-
-  if (!value) {
-    return 'Full name is required';
-  }
-
-  if (value.length < 2) {
-    return 'Full name must contain at least 2 characters';
-  }
-
-  if (value.length > 60) {
-    return 'Full name must not exceed 60 characters';
-  }
-
-  const pattern =
-    /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ .'-]*$/u;
-
-  if (!pattern.test(value)) {
-    return 'Full name contains invalid characters';
-  }
-
-  return '';
-}
-
-function validateEmail(email) {
-  const value = String(email || '').trim();
-
-  if (!value) {
-    return 'Customer email is required';
-  }
-
-  if (value.length > 254) {
-    return 'Email address is too long';
-  }
-
-  const pattern =
-    /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
-
-  if (!pattern.test(value)) {
-    return 'Invalid email address';
-  }
-
-  return '';
-}
-
-function validatePhone(phone) {
-  const value = String(phone || '').trim();
-
-  if (!value) {
-    return 'Contact number is required';
-  }
-
-  if (!/^\d{10}$/.test(value)) {
-    return 'Contact number must contain exactly 10 digits';
-  }
-
-  if (!/^[6-9]\d{9}$/.test(value)) {
-    return 'Invalid Indian mobile number';
-  }
-
-  return '';
-}
 
 // ==========================================
 // CREATE ORDER
@@ -91,58 +29,122 @@ export async function createOrder(req, res, next) {
   try {
     const {
       customerEmail,
-      customerDetails,
-      items
+      customerDetails: customerDetailsRaw,
+      items: itemsRaw
     } = req.body;
 
-    const emailError = validateEmail(customerEmail);
-    if (emailError) {
+
+    // --------------------------------------
+    // CUSTOMER EMAIL
+    // --------------------------------------
+
+    if (!customerEmail) {
       return res.status(400).json({
-        message: emailError
+        message: 'Customer email is required'
       });
     }
 
-    const fullNameError = validateFullName(
-      customerDetails?.fullName
-    );
 
-    if (fullNameError) {
+    // --------------------------------------
+    // PARSE MULTIPART JSON FIELDS
+    // --------------------------------------
+
+    let customerDetails;
+    let items;
+
+    try {
+      customerDetails =
+        typeof customerDetailsRaw === 'string'
+          ? JSON.parse(customerDetailsRaw)
+          : customerDetailsRaw;
+
+      items =
+        typeof itemsRaw === 'string'
+          ? JSON.parse(itemsRaw)
+          : itemsRaw;
+    } catch (error) {
       return res.status(400).json({
-        message: fullNameError
+        message: 'Invalid order data submitted'
       });
     }
 
-    const phoneError = validatePhone(
-      customerDetails?.phone
-    );
 
-    if (phoneError) {
+    // --------------------------------------
+    // CUSTOMER DETAILS
+    // --------------------------------------
+
+    if (
+      !customerDetails?.fullName ||
+      !customerDetails?.phone
+    ) {
       return res.status(400).json({
-        message: phoneError
+        message:
+          'Full name and phone number are required'
       });
     }
 
-    if (!Array.isArray(items) || items.length !== 1) {
+
+    // --------------------------------------
+    // PAYMENT SCREENSHOT
+    // --------------------------------------
+
+    if (!req.file) {
+      return res.status(400).json({
+        message:
+          'Payment screenshot is required'
+      });
+    }
+
+
+    // --------------------------------------
+    // ORDER ITEMS
+    // --------------------------------------
+
+    if (
+      !Array.isArray(items) ||
+      items.length !== 1
+    ) {
       return res.status(400).json({
         message:
           'Order must contain exactly one ACE T-Shirt'
       });
     }
 
+
     const item = items[0];
+
+
+    // --------------------------------------
+    // ITEM VALIDATION
+    // --------------------------------------
 
     if (
       !item?.product ||
+      !item?.neckType ||
       !item?.size
     ) {
       return res.status(400).json({
         message:
-          'Product and size are required'
+          'Product, neck type and size are required'
       });
     }
 
-    // ACE STORE currently offers Collar only.
-    const neckType = 'Collar';
+
+    // --------------------------------------
+    // COLLAR ONLY
+    // --------------------------------------
+
+    if (item.neckType !== 'Collar') {
+      return res.status(400).json({
+        message:
+          'Only Collar T-Shirts are available'
+      });
+    }
+
+
+    // --------------------------------------
+    // GET PRODUCT
+    // --------------------------------------
 
     const product = await Product.findOne({
       _id: item.product,
@@ -155,12 +157,16 @@ export async function createOrder(req, res, next) {
       });
     }
 
-    const selectedSize = String(
-      item.size
-    ).trim();
+
+    // --------------------------------------
+    // VALIDATE SIZE
+    // --------------------------------------
+
+    const selectedSize =
+      String(item.size).trim();
 
     if (
-      !Array.isArray(product.sizes) ||
+      !product.sizes?.length ||
       !product.sizes.includes(selectedSize)
     ) {
       return res.status(400).json({
@@ -169,9 +175,19 @@ export async function createOrder(req, res, next) {
       });
     }
 
+
+    // --------------------------------------
+    // TOTAL FROM DATABASE
+    // --------------------------------------
+
     const totalAmount = Number(
-      Number(product.price).toFixed(2)
+      product.price.toFixed(2)
     );
+
+
+    // --------------------------------------
+    // CREATE ORDER
+    // --------------------------------------
 
     const order = await Order.create({
       user: req.user?._id,
@@ -190,9 +206,13 @@ export async function createOrder(req, res, next) {
       items: [
         {
           product: product._id,
+
           name: product.name,
+
           price: product.price,
-          neckType,
+
+          neckType: 'Collar',
+
           size: selectedSize
         }
       ],
@@ -204,11 +224,43 @@ export async function createOrder(req, res, next) {
       paymentStatus: 'pending',
 
       orderStatus:
-        'pending_payment_verification'
+        'pending_payment_verification',
+
+      paymentScreenshot: {
+        data: req.file.buffer,
+
+        contentType:
+          req.file.mimetype,
+
+        originalName:
+          req.file.originalname,
+
+        uploadedAt: new Date()
+      }
     });
 
+
+    // --------------------------------------
+    // SAFE RESPONSE
+    // --------------------------------------
+
+    const safeOrder =
+      order.toObject();
+
+    if (
+      safeOrder.paymentScreenshot
+    ) {
+      delete safeOrder
+        .paymentScreenshot.data;
+    }
+
+
+    // --------------------------------------
+    // RESPONSE
+    // --------------------------------------
+
     return res.status(201).json({
-      order,
+      order: safeOrder,
 
       message:
         'Order submitted successfully. Payment is pending verification.'
@@ -219,8 +271,9 @@ export async function createOrder(req, res, next) {
   }
 }
 
+
 // ==========================================
-// MY ORDERS
+// USER - MY ORDERS
 // ==========================================
 
 export async function myOrders(
@@ -229,20 +282,23 @@ export async function myOrders(
   next
 ) {
   try {
-    const orders = await Order.find({
-      user: req.user._id
-    }).sort({
-      createdAt: -1
-    });
+    const orders =
+      await Order.find({
+        user: req.user._id
+      }).sort({
+        createdAt: -1
+      });
 
     res.json(orders);
+
   } catch (err) {
     next(err);
   }
 }
 
+
 // ==========================================
-// ALL ORDERS
+// ADMIN - ALL ORDERS
 // ==========================================
 
 export async function allOrders(
@@ -251,27 +307,30 @@ export async function allOrders(
   next
 ) {
   try {
-    const orders = await Order.find()
-      .populate(
-        'user',
-        'name email'
-      )
-      .populate(
-        'paymentVerifiedBy',
-        'name email'
-      )
-      .sort({
-        createdAt: -1
-      });
+    const orders =
+      await Order.find()
+        .populate(
+          'user',
+          'name email'
+        )
+        .populate(
+          'paymentVerifiedBy',
+          'name email'
+        )
+        .sort({
+          createdAt: -1
+        });
 
     res.json(orders);
+
   } catch (err) {
     next(err);
   }
 }
 
+
 // ==========================================
-// UPDATE ORDER STATUS
+// ADMIN - UPDATE ORDER STATUS
 // ==========================================
 
 export async function updateOrderStatus(
@@ -280,7 +339,9 @@ export async function updateOrderStatus(
   next
 ) {
   try {
-    const { orderStatus } = req.body;
+    const {
+      orderStatus
+    } = req.body;
 
     if (
       !ALLOWED_ORDER_STATUSES.includes(
@@ -288,14 +349,17 @@ export async function updateOrderStatus(
       )
     ) {
       return res.status(400).json({
-        message: 'Invalid order status'
+        message:
+          'Invalid order status'
       });
     }
 
     const order =
       await Order.findByIdAndUpdate(
         req.params.id,
-        { orderStatus },
+        {
+          orderStatus
+        },
         {
           new: true,
           runValidators: true
@@ -315,8 +379,9 @@ export async function updateOrderStatus(
   }
 }
 
+
 // ==========================================
-// VERIFY PAYMENT
+// ADMIN - VERIFY PAYMENT
 // ==========================================
 
 export async function verifyPayment(
@@ -330,6 +395,11 @@ export async function verifyPayment(
       rejectionReason
     } = req.body;
 
+
+    // --------------------------------------
+    // VALIDATE ACTION
+    // --------------------------------------
+
     if (
       !['approve', 'reject'].includes(
         action
@@ -341,8 +411,15 @@ export async function verifyPayment(
       });
     }
 
+
+    // --------------------------------------
+    // FIND ORDER
+    // --------------------------------------
+
     const order =
-      await Order.findById(req.params.id);
+      await Order.findById(
+        req.params.id
+      );
 
     if (!order) {
       return res.status(404).json({
@@ -350,8 +427,14 @@ export async function verifyPayment(
       });
     }
 
+
+    // --------------------------------------
+    // CHECK PAYMENT STATUS
+    // --------------------------------------
+
     if (
-      order.paymentStatus !== 'pending'
+      order.paymentStatus !==
+      'pending'
     ) {
       return res.status(400).json({
         message:
@@ -359,14 +442,17 @@ export async function verifyPayment(
       });
     }
 
-    // ========================================
-    // REJECT
-    // ========================================
+
+    // --------------------------------------
+    // REJECT PAYMENT
+    // --------------------------------------
 
     if (action === 'reject') {
-      order.paymentStatus = 'failed';
+      order.paymentStatus =
+        'failed';
 
-      order.orderStatus = 'cancelled';
+      order.orderStatus =
+        'cancelled';
 
       order.paymentVerifiedAt =
         new Date();
@@ -382,14 +468,16 @@ export async function verifyPayment(
 
       return res.json({
         order,
+
         message:
           'Payment rejected.'
       });
     }
 
-    // ========================================
-    // APPROVE
-    // ========================================
+
+    // --------------------------------------
+    // APPROVE PAYMENT
+    // --------------------------------------
 
     order.invoiceNumber =
       `ACE-${Date.now()}-${crypto
@@ -397,9 +485,11 @@ export async function verifyPayment(
         .toString('hex')
         .toUpperCase()}`;
 
-    order.paymentStatus = 'paid';
+    order.paymentStatus =
+      'paid';
 
-    order.orderStatus = 'processing';
+    order.orderStatus =
+      'processing';
 
     order.paymentVerifiedAt =
       new Date();
@@ -412,235 +502,422 @@ export async function verifyPayment(
 
     await order.save();
 
-    // ========================================
-    // GENERATE INVOICE
-    // ========================================
 
-    let invoice = null;
-    let invoiceGenerated = false;
+    // --------------------------------------
+    // CREATE INVOICE
+    // --------------------------------------
 
-    try {
-      invoice =
-        await createInvoice(order);
+    const invoice =
+      await createInvoice(order);
 
-      invoiceGenerated = true;
 
-    } catch (invoiceError) {
-      console.error(
-        'Invoice generation failed:',
-        invoiceError
-      );
-    }
+    // --------------------------------------
+    // SEND EMAIL
+    // --------------------------------------
 
-    // ========================================
-    // RESPOND IMMEDIATELY
-    // ========================================
-
-    res.json({
-      order,
-
-      invoiceGenerated,
-
-      emailSent: false,
-
-      message:
-        invoiceGenerated
-          ? 'Payment approved and order moved to processing.'
-          : 'Payment approved and order moved to processing. Invoice generation failed.'
-    });
-
-    // ========================================
-    // SEND EMAIL IN BACKGROUND
-    // ========================================
-
-    if (invoice) {
-      sendOrderEmail({
+    const emailResult =
+      await sendOrderEmail({
         to: order.customerEmail,
         order,
         invoice
-      })
-        .then((emailResult) => {
-          if (emailResult?.skipped) {
-            console.log(
-              'Invoice email skipped:',
-              emailResult.reason
-            );
-          } else {
-            console.log(
-              `Invoice email sent to ${order.customerEmail}`
-            );
-          }
-        })
-        .catch((emailError) => {
-          console.error(
-            'Invoice email failed:',
-            emailError
-          );
-        });
-    }
+      });
+
+
+    // --------------------------------------
+    // RESPONSE
+    // --------------------------------------
+
+    return res.json({
+      order,
+
+      emailSent:
+        !emailResult?.skipped,
+
+      message:
+        emailResult?.skipped
+          ? 'Payment approved and invoice generated. Email is not configured yet.'
+          : 'Payment approved, invoice generated and email sent.'
+    });
 
   } catch (err) {
     next(err);
   }
 }
 
+
 // ==========================================
-// EXPORT ORDERS TO EXCEL
+// ADMIN - VIEW PAYMENT SCREENSHOT
 // ==========================================
 
-export const exportOrders = async (
+export async function getPaymentScreenshot(
   req,
-  res
-) => {
+  res,
+  next
+) {
   try {
-    const filter =
-      req.query.filter || 'all';
-
-    const query = {};
-
-    if (filter === 'paid') {
-      query.paymentStatus = 'paid';
-    }
-
-    const orders =
-      await Order.find(query)
-        .populate(
-          'items.product',
-          'name'
-        )
-        .sort({
-          createdAt: -1
-        });
-
-    const excelData =
-      orders.map((order) => {
-        const item =
-          order.items?.[0] || {};
-
-        return {
-          'Order ID':
-            order._id?.toString() || '',
-
-          'Invoice Number':
-            order.invoiceNumber || '',
-
-          'Customer Name':
-            order.customerDetails
-              ?.fullName || '',
-
-          'Email':
-            order.customerEmail || '',
-
-          'Phone':
-            order.customerDetails
-              ?.phone || '',
-
-          'Product':
-            item.name ||
-            item.product?.name ||
-            '',
-
-          'Neck Type':
-            item.neckType || '',
-
-          'Size':
-            item.size || '',
-
-          'Amount':
-            order.totalAmount || 0,
-
-          'Payment Method':
-            order.paymentMethod || '',
-
-          'Payment Status':
-            order.paymentStatus || '',
-
-          'Order Status':
-            order.orderStatus || '',
-
-          'Order Date':
-            order.createdAt
-              ? new Date(
-                  order.createdAt
-                ).toLocaleString(
-                  'en-IN'
-                )
-              : '',
-
-          'Payment Verified At':
-            order.paymentVerifiedAt
-              ? new Date(
-                  order.paymentVerifiedAt
-                ).toLocaleString(
-                  'en-IN'
-                )
-              : ''
-        };
-      });
-
-    const worksheet =
-      XLSX.utils.json_to_sheet(
-        excelData
+    const order =
+      await Order.findById(
+        req.params.id
+      ).select(
+        '+paymentScreenshot.data'
       );
 
-    worksheet['!cols'] = [
-      { wch: 26 },
-      { wch: 28 },
-      { wch: 22 },
-      { wch: 30 },
-      { wch: 16 },
-      { wch: 22 },
-      { wch: 15 },
-      { wch: 10 },
-      { wch: 14 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 25 },
-      { wch: 24 },
-      { wch: 24 }
-    ];
 
-    const workbook =
-      XLSX.utils.book_new();
+    // --------------------------------------
+    // ORDER NOT FOUND
+    // --------------------------------------
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      'Orders'
-    );
-
-    const excelBuffer =
-      XLSX.write(workbook, {
-        type: 'buffer',
-        bookType: 'xlsx'
+    if (!order) {
+      return res.status(404).json({
+        message: 'Order not found'
       });
+    }
 
-    const fileName =
-      filter === 'paid'
-        ? 'ACE-Paid-Orders.xlsx'
-        : 'ACE-All-Orders.xlsx';
+
+    // --------------------------------------
+    // SCREENSHOT NOT FOUND
+    // --------------------------------------
+
+    const screenshot =
+      order.paymentScreenshot;
+
+    if (!screenshot?.data) {
+      return res.status(404).json({
+        message:
+          'Payment screenshot not found'
+      });
+    }
+
+
+    // --------------------------------------
+    // NORMALIZE BUFFER
+    // --------------------------------------
+
+    let imageBuffer;
+
+    if (
+      Buffer.isBuffer(
+        screenshot.data
+      )
+    ) {
+      imageBuffer =
+        screenshot.data;
+
+    } else if (
+      screenshot.data?.buffer &&
+      Buffer.isBuffer(
+        screenshot.data.buffer
+      )
+    ) {
+      imageBuffer =
+        screenshot.data.buffer;
+
+    } else {
+      imageBuffer =
+        Buffer.from(
+          screenshot.data
+        );
+    }
+
+
+    // --------------------------------------
+    // EMPTY FILE CHECK
+    // --------------------------------------
+
+    if (!imageBuffer.length) {
+      return res.status(404).json({
+        message:
+          'Payment screenshot is empty'
+      });
+    }
+
+
+    // --------------------------------------
+    // RESPONSE HEADERS
+    // --------------------------------------
+
+    const contentType =
+      screenshot.contentType ||
+      'image/jpeg';
+
+    const originalName =
+      (
+        screenshot.originalName ||
+        'payment-screenshot.jpg'
+      ).replace(
+        /"/g,
+        ''
+      );
+
+
+    res.status(200);
 
     res.setHeader(
       'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      contentType
+    );
+
+    res.setHeader(
+      'Content-Length',
+      imageBuffer.length
     );
 
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${fileName}"`
+      `inline; filename="${originalName}"`
     );
 
-    res.send(excelBuffer);
 
-  } catch (error) {
+    // --------------------------------------
+    // SEND IMAGE
+    // --------------------------------------
+
+    return res.end(
+      imageBuffer
+    );
+
+  } catch (err) {
     console.error(
-      'Export orders error:',
-      error
+      'Payment screenshot error:',
+      err
     );
 
-    res.status(500).json({
-      message:
-        'Unable to export orders.'
-    });
+    next(err);
   }
-};
+}
+
+
+// ==========================================
+// EXPORT ORDERS TO EXCEL
+// ==========================================
+
+export const exportOrders =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const filter =
+        req.query.filter ||
+        'all';
+
+
+      // ------------------------------------
+      // FILTER
+      // ------------------------------------
+
+      let query = {};
+
+      if (
+        filter === 'paid'
+      ) {
+        query.paymentStatus =
+          'paid';
+      }
+
+
+      // ------------------------------------
+      // GET ORDERS
+      // ------------------------------------
+
+      const orders =
+        await Order.find(
+          query
+        )
+          .populate(
+            'items.product',
+            'name'
+          )
+          .sort({
+            createdAt: -1
+          });
+
+
+      // ------------------------------------
+      // EXCEL DATA
+      // ------------------------------------
+
+      const excelData =
+        orders.map(
+          (order) => {
+            const item =
+              order.items?.[0] ||
+              {};
+
+            return {
+              'Order ID':
+                order._id
+                  ?.toString() ||
+                '',
+
+              'Invoice Number':
+                order.invoiceNumber ||
+                '',
+
+              'Customer Name':
+                order
+                  .customerDetails
+                  ?.fullName ||
+                '',
+
+              'Email':
+                order.customerEmail ||
+                '',
+
+              'Phone':
+                order
+                  .customerDetails
+                  ?.phone ||
+                '',
+
+              'Product':
+                item.name ||
+                item.product?.name ||
+                '',
+
+              'Neck Type':
+                item.neckType ||
+                '',
+
+              'Size':
+                item.size ||
+                '',
+
+              'Amount':
+                order.totalAmount ||
+                0,
+
+              'Payment Method':
+                order.paymentMethod ||
+                '',
+
+              'Payment Status':
+                order.paymentStatus ||
+                '',
+
+              'Order Status':
+                order.orderStatus ||
+                '',
+
+              'Order Date':
+                order.createdAt
+                  ? new Date(
+                      order.createdAt
+                    ).toLocaleString(
+                      'en-IN'
+                    )
+                  : '',
+
+              'Payment Verified At':
+                order.paymentVerifiedAt
+                  ? new Date(
+                      order.paymentVerifiedAt
+                    ).toLocaleString(
+                      'en-IN'
+                    )
+                  : ''
+            };
+          }
+        );
+
+
+      // ------------------------------------
+      // WORKSHEET
+      // ------------------------------------
+
+      const worksheet =
+        XLSX.utils.json_to_sheet(
+          excelData
+        );
+
+
+      // ------------------------------------
+      // COLUMN WIDTHS
+      // ------------------------------------
+
+      worksheet['!cols'] = [
+        { wch: 26 },
+        { wch: 28 },
+        { wch: 22 },
+        { wch: 30 },
+        { wch: 16 },
+        { wch: 22 },
+        { wch: 15 },
+        { wch: 10 },
+        { wch: 14 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 25 },
+        { wch: 24 },
+        { wch: 24 }
+      ];
+
+
+      // ------------------------------------
+      // WORKBOOK
+      // ------------------------------------
+
+      const workbook =
+        XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        'Orders'
+      );
+
+
+      // ------------------------------------
+      // CREATE BUFFER
+      // ------------------------------------
+
+      const excelBuffer =
+        XLSX.write(
+          workbook,
+          {
+            type: 'buffer',
+            bookType: 'xlsx'
+          }
+        );
+
+
+      // ------------------------------------
+      // FILE NAME
+      // ------------------------------------
+
+      const fileName =
+        filter === 'paid'
+          ? 'ACE-Paid-Orders.xlsx'
+          : 'ACE-All-Orders.xlsx';
+
+
+      // ------------------------------------
+      // RESPONSE
+      // ------------------------------------
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fileName}"`
+      );
+
+      res.send(
+        excelBuffer
+      );
+
+    } catch (error) {
+      console.error(
+        'Export orders error:',
+        error
+      );
+
+      res.status(500).json({
+        message:
+          'Unable to export orders.'
+      });
+    }
+  };

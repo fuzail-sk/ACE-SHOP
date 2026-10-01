@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 import AdminLogin from "./AdminLogin";
+
 import AdminDashboard from "./AdminDashboard";
 
 import {
@@ -11,29 +12,38 @@ import {
   useLocation,
 } from "react-router-dom";
 
-const API_URL = "https://ace-shop.onrender.com/api";
+const API_URL = "http://localhost:5000/api";
 
 // ==========================================
+
 // PRODUCT IMAGES
+
 // ==========================================
 
 const productImages = [
   {
     src: "/images/ace-tshirt-home.png",
+
     alt: "ACE T-Shirt",
   },
+
   {
     src: "/images/ace-tshirt-back.jpg",
+
     alt: "ACE T-Shirt Back View",
   },
+
   {
     src: "/images/ace-tshirt-logo.jpg",
+
     alt: "ACE T-Shirt Logo Close Up",
   },
 ];
 
 // ==========================================
+
 // VALIDATION FUNCTIONS
+
 // ==========================================
 
 function validateFullName(name) {
@@ -51,8 +61,6 @@ function validateFullName(name) {
     return "Full name must not exceed 60 characters.";
   }
 
-  // Allows letters, spaces, apostrophes, dots and hyphens.
-  // Rejects numbers and invalid symbols.
   const namePattern = /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ .'-]*$/u;
 
   if (!namePattern.test(value)) {
@@ -90,7 +98,6 @@ function validatePhone(phone) {
     return "Contact number is required.";
   }
 
-  // ACE Store uses Indian mobile numbers.
   if (!/^\d{10}$/.test(value)) {
     return "Contact number must contain exactly 10 digits.";
   }
@@ -103,7 +110,9 @@ function validatePhone(phone) {
 }
 
 // ==========================================
+
 // HEADER
+
 // ==========================================
 
 function Header({ cartCount }) {
@@ -115,7 +124,9 @@ function Header({ cartCount }) {
 
       <nav>
         <Link to="/">Home</Link>
+
         <Link to="/product">T-Shirt</Link>
+
         <Link to="/checkout">Cart{cartCount > 0 ? ` (${cartCount})` : ""}</Link>
       </nav>
     </header>
@@ -123,15 +134,27 @@ function Header({ cartCount }) {
 }
 
 // ==========================================
+
 // HOME
+
 // ==========================================
 
-function Home({ product, loading, error, onRetry }) {
+function Home({
+  product,
+
+  loading,
+
+  error,
+
+  onRetry,
+}) {
   if (error) {
     return (
       <main className="empty">
         <h2>Unable to connect to ACE Store.</h2>
+
         <p>Please try again in a moment.</p>
+
         <button className="button" type="button" onClick={onRetry}>
           Try Again
         </button>
@@ -163,6 +186,7 @@ function Home({ product, loading, error, onRetry }) {
         className="hero-card"
         style={{
           padding: 0,
+
           overflow: "hidden",
         }}
       >
@@ -171,10 +195,15 @@ function Home({ product, loading, error, onRetry }) {
           alt="ACE T-Shirt"
           style={{
             width: "75%",
+
             height: "auto",
+
             aspectRatio: "auto",
+
             objectFit: "contain",
+
             display: "block",
+
             margin: "0 auto",
           }}
         />
@@ -182,12 +211,22 @@ function Home({ product, loading, error, onRetry }) {
         <div
           style={{
             margin: 0,
+
             padding: "18px 22px",
           }}
         >
           <strong>{product?.name || "ACE T-Shirt"}</strong>
+
           {loading && (
-            <p style={{ margin: "6px 0 0", fontSize: "13px", opacity: 0.6 }}>
+            <p
+              style={{
+                margin: "6px 0 0",
+
+                fontSize: "13px",
+
+                opacity: 0.6,
+              }}
+            >
               Loading product details...
             </p>
           )}
@@ -198,13 +237,22 @@ function Home({ product, loading, error, onRetry }) {
 }
 
 // ==========================================
+
 // PRODUCT
+
 // ==========================================
 
-function Product({ product, loading, setCart }) {
+function Product({
+  product,
+
+  loading,
+
+  setCart,
+}) {
   const navigate = useNavigate();
 
   const [size, setSize] = useState("");
+
   const [currentImage, setCurrentImage] = useState(0);
 
   useEffect(() => {
@@ -225,6 +273,7 @@ function Product({ product, loading, setCart }) {
     return (
       <main className="empty">
         <h2>Product unavailable.</h2>
+
         <p>Please make sure the backend server is running.</p>
       </main>
     );
@@ -247,7 +296,9 @@ function Product({ product, loading, setCart }) {
 
     setCart({
       product,
+
       neckType: "Collar",
+
       size,
     });
 
@@ -257,24 +308,33 @@ function Product({ product, loading, setCart }) {
   return (
     <main className="product-page">
       {/* ==========================================
+
           SINGLE IMAGE CAROUSEL
+
           ========================================== */}
 
       <div
         className="product-image"
         style={{
           position: "relative",
+
           display: "flex",
+
           flexDirection: "column",
+
           alignItems: "center",
         }}
       >
         <div
           style={{
             position: "relative",
+
             width: "100%",
+
             display: "flex",
+
             alignItems: "center",
+
             justifyContent: "center",
           }}
         >
@@ -286,22 +346,39 @@ function Product({ product, loading, setCart }) {
             aria-label="Previous image"
             style={{
               position: "absolute",
+
               left: "12px",
+
               top: "50%",
+
               transform: "translateY(-50%)",
+
               zIndex: 2,
+
               width: "42px",
+
               height: "42px",
+
               borderRadius: "50%",
+
               border: "1px solid #222",
+
               background: "#fff",
+
               color: "#000",
+
               fontSize: "24px",
+
               lineHeight: "1",
+
               cursor: "pointer",
+
               display: "flex",
+
               alignItems: "center",
+
               justifyContent: "center",
+
               boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             }}
           >
@@ -316,10 +393,15 @@ function Product({ product, loading, setCart }) {
             alt={productImages[currentImage].alt}
             style={{
               width: "100%",
+
               maxWidth: "560px",
+
               height: "520px",
+
               objectFit: "contain",
+
               display: "block",
+
               animation: "aceImageFade 0.25s ease",
             }}
           />
@@ -332,22 +414,39 @@ function Product({ product, loading, setCart }) {
             aria-label="Next image"
             style={{
               position: "absolute",
+
               right: "12px",
+
               top: "50%",
+
               transform: "translateY(-50%)",
+
               zIndex: 2,
+
               width: "42px",
+
               height: "42px",
+
               borderRadius: "50%",
+
               border: "1px solid #222",
+
               background: "#fff",
+
               color: "#000",
+
               fontSize: "24px",
+
               lineHeight: "1",
+
               cursor: "pointer",
+
               display: "flex",
+
               alignItems: "center",
+
               justifyContent: "center",
+
               boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             }}
           >
@@ -360,8 +459,11 @@ function Product({ product, loading, setCart }) {
         <div
           style={{
             display: "flex",
+
             alignItems: "center",
+
             gap: "8px",
+
             marginTop: "12px",
           }}
         >
@@ -373,11 +475,17 @@ function Product({ product, loading, setCart }) {
               aria-label={`Show image ${index + 1}`}
               style={{
                 width: "8px",
+
                 height: "8px",
+
                 padding: 0,
+
                 border: "none",
+
                 borderRadius: "50%",
+
                 background: currentImage === index ? "#000" : "#c8c8c8",
+
                 cursor: "pointer",
               }}
             />
@@ -386,7 +494,9 @@ function Product({ product, loading, setCart }) {
       </div>
 
       {/* ==========================================
+
           PRODUCT DETAILS
+
           ========================================== */}
 
       <section>
@@ -437,23 +547,32 @@ function Product({ product, loading, setCart }) {
 }
 
 // ==========================================
+
 // CHECKOUT
+
 // ==========================================
 
 function Checkout({ cart }) {
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState("");
+
   const [email, setEmail] = useState("");
+
   const [phone, setPhone] = useState("");
+
+  const [paymentScreenshot, setPaymentScreenshot] = useState(null);
 
   const [fieldErrors, setFieldErrors] = useState({
     fullName: "",
+
     email: "",
+
     phone: "",
   });
 
   const [submitting, setSubmitting] = useState(false);
+
   const [error, setError] = useState("");
 
   if (!cart) {
@@ -471,7 +590,9 @@ function Checkout({ cart }) {
   const total = cart.product.price;
 
   // ==========================================
+
   // LIVE FIELD VALIDATION
+
   // ==========================================
 
   const handleFullNameChange = (event) => {
@@ -481,6 +602,7 @@ function Checkout({ cart }) {
 
     setFieldErrors((previous) => ({
       ...previous,
+
       fullName: validateFullName(value),
     }));
 
@@ -494,6 +616,7 @@ function Checkout({ cart }) {
 
     setFieldErrors((previous) => ({
       ...previous,
+
       email: validateEmail(value),
     }));
 
@@ -501,13 +624,17 @@ function Checkout({ cart }) {
   };
 
   const handlePhoneChange = (event) => {
-    // Allow digits only.
-    const value = event.target.value.replace(/\D/g, "");
+    const value = event.target.value.replace(
+      /\D/g,
+
+      "",
+    );
 
     setPhone(value);
 
     setFieldErrors((previous) => ({
       ...previous,
+
       phone: validatePhone(value),
     }));
 
@@ -515,7 +642,51 @@ function Checkout({ cart }) {
   };
 
   // ==========================================
+
+  // PAYMENT SCREENSHOT
+
+  // ==========================================
+
+  const handlePaymentScreenshotChange = (event) => {
+    const file = event.target.files?.[0] || null;
+
+    setError("");
+
+    if (!file) {
+      setPaymentScreenshot(null);
+
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setPaymentScreenshot(null);
+
+      event.target.value = "";
+
+      setError("Please upload a JPG, JPEG, PNG or WEBP payment screenshot.");
+
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setPaymentScreenshot(null);
+
+      event.target.value = "";
+
+      setError("Payment screenshot must be smaller than 5 MB.");
+
+      return;
+    }
+
+    setPaymentScreenshot(file);
+  };
+
+  // ==========================================
+
   // SUBMIT ORDER
+
   // ==========================================
 
   const handleSubmitOrder = async (event) => {
@@ -524,45 +695,83 @@ function Checkout({ cart }) {
     setError("");
 
     const fullNameError = validateFullName(fullName);
+
     const emailError = validateEmail(email);
+
     const phoneError = validatePhone(phone);
 
     setFieldErrors({
       fullName: fullNameError,
+
       email: emailError,
+
       phone: phoneError,
     });
 
     if (fullNameError || emailError || phoneError) {
       setError("Please correct the highlighted details before submitting.");
+
+      return;
+    }
+
+    if (!paymentScreenshot) {
+      setError(
+        "Please upload your payment screenshot before submitting the order.",
+      );
+
       return;
     }
 
     try {
       setSubmitting(true);
 
-      const response = await fetch(`${API_URL}/orders`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          customerEmail: email.trim(),
+      const formData = new FormData();
 
-          items: [
-            {
-              product: cart.product._id,
-              neckType: "Collar",
-              size: cart.size,
-            },
-          ],
+      formData.append(
+        "customerEmail",
 
-          customerDetails: {
-            fullName: fullName.trim(),
-            phone: phone.trim(),
+        email.trim(),
+      );
+
+      formData.append(
+        "items",
+
+        JSON.stringify([
+          {
+            product: cart.product._id,
+
+            neckType: "Collar",
+
+            size: cart.size,
           },
+        ]),
+      );
+
+      formData.append(
+        "customerDetails",
+
+        JSON.stringify({
+          fullName: fullName.trim(),
+
+          phone: phone.trim(),
         }),
-      });
+      );
+
+      formData.append(
+        "paymentScreenshot",
+
+        paymentScreenshot,
+      );
+
+      const response = await fetch(
+        `${API_URL}/orders`,
+
+        {
+          method: "POST",
+
+          body: formData,
+        },
+      );
 
       const data = await response.json();
 
@@ -572,7 +781,11 @@ function Checkout({ cart }) {
 
       navigate("/order-success");
     } catch (err) {
-      console.error("Order submission error:", err);
+      console.error(
+        "Order submission error:",
+
+        err,
+      );
 
       setError(err.message || "Something went wrong. Please try again.");
     } finally {
@@ -582,6 +795,12 @@ function Checkout({ cart }) {
 
   return (
     <main className="checkout">
+      {/* ==========================================
+
+          CUSTOMER DETAILS
+
+          ========================================== */}
+
       <section>
         <p className="eyebrow">CHECKOUT</p>
 
@@ -598,6 +817,7 @@ function Checkout({ cart }) {
             onBlur={() =>
               setFieldErrors((previous) => ({
                 ...previous,
+
                 fullName: validateFullName(fullName),
               }))
             }
@@ -619,6 +839,7 @@ function Checkout({ cart }) {
             onBlur={() =>
               setFieldErrors((previous) => ({
                 ...previous,
+
                 email: validateEmail(email),
               }))
             }
@@ -639,6 +860,7 @@ function Checkout({ cart }) {
             onBlur={() =>
               setFieldErrors((previous) => ({
                 ...previous,
+
                 phone: validatePhone(phone),
               }))
             }
@@ -652,40 +874,74 @@ function Checkout({ cart }) {
         </form>
       </section>
 
+      {/* ==========================================
+
+          PAYMENT
+
+          ========================================== */}
+
       <aside className="payment">
         <h3>Order Summary</h3>
 
         <div
           style={{
             lineHeight: "1.5",
+
             marginBottom: "24px",
           }}
         >
-          <div style={{ fontWeight: 700 }}>{cart.product.name}</div>
+          <div
+            style={{
+              fontWeight: 700,
+            }}
+          >
+            {cart.product.name}
+          </div>
+
           <div>Style: Collar</div>
+
           <div>Size: {cart.size}</div>
+
           <div>₹{total}</div>
         </div>
 
         <h3>UPI Payment</h3>
 
-        <p style={{ marginBottom: "14px", lineHeight: "1.5" }}>
+        <p
+          style={{
+            marginBottom: "14px",
+
+            lineHeight: "1.5",
+          }}
+        >
           Scan the ACE store QR code and pay <b>₹{total}</b>.
         </p>
+
+        {/* QR CODE */}
 
         <div
           className="qr"
           style={{
             width: "100%",
+
             height: "auto",
+
             minHeight: 0,
+
             boxSizing: "border-box",
+
             overflow: "hidden",
+
             display: "flex",
+
             flexDirection: "column",
+
             alignItems: "center",
+
             justifyContent: "center",
+
             padding: "16px",
+
             marginBottom: "16px",
           }}
         >
@@ -698,25 +954,32 @@ function Checkout({ cart }) {
               if (current.includes("QR%20CODE%20_krish_Parmar.png")) {
                 event.currentTarget.src =
                   "/images/QR%20CODE%20_krish_Parmar.jpeg";
+
                 return;
               }
 
               if (current.includes("QR%20CODE%20_krish_Parmar.jpeg")) {
                 event.currentTarget.src =
                   "/images/QR%20CODE%20_krish_Parmar.jpg";
+
                 return;
               }
 
-              // Final fallback to the previous filename if it still exists.
               event.currentTarget.src = "/images/ace-upi-qr.jpeg";
             }}
             style={{
               width: "220px",
+
               maxWidth: "100%",
+
               aspectRatio: "1 / 1",
+
               height: "auto",
+
               objectFit: "contain",
+
               display: "block",
+
               borderRadius: "8px",
             }}
           />
@@ -724,9 +987,13 @@ function Checkout({ cart }) {
           <p
             style={{
               marginTop: "12px",
+
               marginBottom: 0,
+
               textAlign: "center",
+
               fontSize: "13px",
+
               lineHeight: "1.4",
             }}
           >
@@ -735,21 +1002,123 @@ function Checkout({ cart }) {
         </div>
 
         <p className="muted">
-          After making the payment, click the button below. Your payment will be
-          verified manually by the ACE senior/admin.
+          After making the payment, upload your payment screenshot below. Your
+          payment will be verified manually by the ACE senior/admin.
         </p>
+
+        {/* ==========================================
+
+            PAYMENT SCREENSHOT UPLOAD
+
+            ========================================== */}
+
+        <div
+          style={{
+            marginTop: "16px",
+
+            padding: "16px",
+
+            border: "1px solid #ddd",
+
+            borderRadius: "12px",
+
+            background: "#fff",
+          }}
+        >
+          <h4
+            style={{
+              margin: "0 0 6px",
+
+              fontSize: "17px",
+            }}
+          >
+            Payment Proof
+          </h4>
+
+          <p
+            style={{
+              margin: "0 0 12px",
+
+              fontSize: "13px",
+
+              color: "#666",
+
+              lineHeight: "1.5",
+            }}
+          >
+            After payment, upload the screenshot of your ₹{total} payment.
+          </p>
+
+          <label
+            style={{
+              display: "block",
+
+              width: "100%",
+
+              boxSizing: "border-box",
+
+              padding: "10px 12px",
+
+              border: "1px dashed #999",
+
+              borderRadius: "8px",
+
+              cursor: "pointer",
+
+              fontSize: "14px",
+
+              background: "#fafafa",
+            }}
+          >
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/jpg"
+              onChange={handlePaymentScreenshotChange}
+              style={{
+                width: "100%",
+
+                cursor: "pointer",
+              }}
+            />
+          </label>
+
+          {paymentScreenshot && (
+            <p
+              style={{
+                margin: "10px 0 0",
+
+                fontSize: "13px",
+
+                color: "#222",
+              }}
+            >
+              ✓ {paymentScreenshot.name}
+            </p>
+          )}
+        </div>
+
+        {/* ==========================================
+
+            ORDER SUMMARY
+
+            ========================================== */}
 
         <div className="order-summary">
           <p
             style={{
               display: "flex",
+
               justifyContent: "space-between",
+
               alignItems: "center",
+
               gap: "24px",
+
               margin: 0,
             }}
           >
             <span>T-Shirt</span>
+
             <b>₹{total}</b>
           </p>
 
@@ -758,24 +1127,35 @@ function Checkout({ cart }) {
           <p
             style={{
               display: "flex",
+
               justifyContent: "space-between",
+
               alignItems: "center",
+
               gap: "24px",
+
               margin: 0,
             }}
           >
             <strong>Total :</strong>
+
             <strong>₹{total}</strong>
           </p>
         </div>
+
+        {/* ==========================================
+
+            SUBMIT
+
+            ========================================== */}
 
         <button
           className="button full"
           type="button"
           onClick={handleSubmitOrder}
-          disabled={submitting}
+          disabled={submitting || !paymentScreenshot}
         >
-          {submitting ? "Submitting Order..." : "I've Paid — Submit Order"}
+          {"Submit Order"}
         </button>
       </aside>
     </main>
@@ -783,7 +1163,9 @@ function Checkout({ cart }) {
 }
 
 // ==========================================
+
 // SUCCESS
+
 // ==========================================
 
 function Success() {
@@ -809,14 +1191,21 @@ function Success() {
 }
 
 // ==========================================
+
 // ADMIN LOGIN PAGE
+
 // ==========================================
 
 function AdminLoginPage() {
   const navigate = useNavigate();
 
   const handleLogin = (user) => {
-    console.log("Admin logged in:", user);
+    console.log(
+      "Admin logged in:",
+
+      user,
+    );
+
     navigate("/admin");
   };
 
@@ -824,29 +1213,45 @@ function AdminLoginPage() {
 }
 
 // ==========================================
+
 // MAIN APP
+
 // ==========================================
 
 export default function App() {
   const [product, setProduct] = useState(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(false);
+
   const [cart, setCart] = useState(null);
 
   const location = useLocation();
 
   const isAdminPage = location.pathname.startsWith("/admin");
 
+  // ==========================================
+
+  // FETCH PRODUCT
+
+  // ==========================================
+
   const fetchProduct = async () => {
     try {
       setLoading(true);
+
       setError(false);
 
       console.log("Fetching ACE product...");
 
-      const response = await fetch(`${API_URL}/products`, {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `${API_URL}/products`,
+
+        {
+          cache: "no-store",
+        },
+      );
 
       if (!response.ok) {
         throw new Error(`Product API returned ${response.status}`);
@@ -860,7 +1265,12 @@ export default function App() {
 
       setProduct(products[0]);
     } catch (err) {
-      console.error("Product fetch error:", err);
+      console.error(
+        "Product fetch error:",
+
+        err,
+      );
+
       setError(true);
     } finally {
       setLoading(false);
@@ -873,27 +1283,49 @@ export default function App() {
 
   return (
     <>
-      {/* Image transition animation */}
+      {/* ==========================================
+
+          IMAGE TRANSITION ANIMATION
+
+          ========================================== */}
 
       <style>
         {`
+
           @keyframes aceImageFade {
+
             from {
+
               opacity: 0;
+
               transform: scale(0.98);
+
             }
 
+
+
             to {
+
               opacity: 1;
+
               transform: scale(1);
+
             }
+
           }
+
         `}
       </style>
 
       {!isAdminPage && <Header cartCount={cart ? 1 : 0} />}
 
       <Routes>
+        {/* ==========================================
+
+            HOME
+
+            ========================================== */}
+
         <Route
           path="/"
           element={
@@ -906,6 +1338,12 @@ export default function App() {
           }
         />
 
+        {/* ==========================================
+
+            PRODUCT
+
+            ========================================== */}
+
         <Route
           path="/product"
           element={
@@ -913,18 +1351,40 @@ export default function App() {
           }
         />
 
+        {/* ==========================================
+
+            CHECKOUT
+
+            ========================================== */}
+
         <Route path="/checkout" element={<Checkout cart={cart} />} />
+
+        {/* ==========================================
+
+            SUCCESS
+
+            ========================================== */}
 
         <Route path="/order-success" element={<Success />} />
 
+        {/* ==========================================
+
+            ADMIN LOGIN
+
+            ========================================== */}
+
         <Route path="/admin/login" element={<AdminLoginPage />} />
+
+        {/* ==========================================
+
+            ADMIN DASHBOARD
+
+            ========================================== */}
 
         <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
 
-      {!isAdminPage && (
-        <footer>© 2026 ACE STORE</footer>
-      )}
+      {!isAdminPage && <footer>© 2026 ACE STORE</footer>}
     </>
   );
 }

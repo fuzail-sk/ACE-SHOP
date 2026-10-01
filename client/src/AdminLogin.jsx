@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
-const API_URL = 'https://ace-shop.onrender.com/api';
-
+const API_URL = 'http://localhost:5000/api';
 export default function AdminLogin({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

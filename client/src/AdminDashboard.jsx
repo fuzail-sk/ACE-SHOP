@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-const API_URL = 'https://ace-shop.onrender.com/api';
+const API_URL = 'http://localhost:5000/api';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -10,80 +10,118 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState('');
-  const [exportLoading, setExportLoading] = useState('');
+  const [actionLoading, setActionLoading] = useState("");
 
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [screenshotOrder, setScreenshotOrder] = useState(null);
+  const [screenshotUrl, setScreenshotUrl] = useState("");
+  const [screenshotLoading, setScreenshotLoading] =
+    useState(false);
 
   // ==========================================
   // CHECK ADMIN LOGIN
   // ==========================================
+
   useEffect(() => {
-    const storedUser = localStorage.getItem('ace_admin_user');
-    const token = localStorage.getItem('ace_admin_token');
+    const storedUser =
+      localStorage.getItem("ace_admin_user");
+
+    const token =
+      localStorage.getItem("ace_admin_token");
 
     if (!storedUser || !token) {
-      navigate('/admin/login');
+      navigate("/admin/login");
       return;
     }
 
     try {
-      const parsedUser = JSON.parse(storedUser);
+      const parsedUser =
+        JSON.parse(storedUser);
 
-      if (parsedUser.role !== 'admin') {
-        localStorage.removeItem('ace_admin_user');
-        localStorage.removeItem('ace_admin_token');
+      if (parsedUser.role !== "admin") {
+        localStorage.removeItem(
+          "ace_admin_user"
+        );
 
-        navigate('/admin/login');
+        localStorage.removeItem(
+          "ace_admin_token"
+        );
+
+        navigate("/admin/login");
         return;
       }
 
       setUser(parsedUser);
     } catch {
-      localStorage.removeItem('ace_admin_user');
-      localStorage.removeItem('ace_admin_token');
+      localStorage.removeItem(
+        "ace_admin_user"
+      );
 
-      navigate('/admin/login');
+      localStorage.removeItem(
+        "ace_admin_token"
+      );
+
+      navigate("/admin/login");
     }
   }, [navigate]);
 
   // ==========================================
-  // FETCH ALL ORDERS
+  // FETCH ORDERS
   // ==========================================
+
   const fetchOrders = async () => {
-    const token = localStorage.getItem('ace_admin_token');
+    const token =
+      localStorage.getItem(
+        "ace_admin_token"
+      );
 
     if (!token) {
-      navigate('/admin/login');
+      navigate("/admin/login");
       return;
     }
 
     try {
       setLoading(true);
-      setError('');
+      setError("");
 
-      const response = await fetch(`${API_URL}/orders`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`
+      const response = await fetch(
+        `${API_URL}/orders`,
+        {
+          method: "GET",
+
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
         }
-      });
+      );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message || 'Unable to fetch orders.'
+          data.message ||
+            "Unable to fetch orders."
         );
       }
 
-      setOrders(data);
+      setOrders(
+        Array.isArray(data)
+          ? data
+          : []
+      );
     } catch (err) {
-      console.error('Fetch orders error:', err);
+      console.error(
+        "Fetch orders error:",
+        err
+      );
 
       setError(
-        err.message || 'Unable to load orders.'
+        err.message ||
+          "Unable to load orders."
       );
     } finally {
       setLoading(false);
@@ -93,6 +131,7 @@ export default function AdminDashboard() {
   // ==========================================
   // LOAD ORDERS
   // ==========================================
+
   useEffect(() => {
     if (user) {
       fetchOrders();
@@ -102,27 +141,126 @@ export default function AdminDashboard() {
   // ==========================================
   // LOGOUT
   // ==========================================
-  const logout = () => {
-    localStorage.removeItem('ace_admin_token');
-    localStorage.removeItem('ace_admin_user');
 
-    navigate('/admin/login');
+  const logout = () => {
+    localStorage.removeItem(
+      "ace_admin_token"
+    );
+
+    localStorage.removeItem(
+      "ace_admin_user"
+    );
+
+    navigate("/admin/login");
+  };
+
+  // ==========================================
+  // VIEW PAYMENT SCREENSHOT
+  // ==========================================
+
+  const viewPaymentScreenshot = async (
+    order
+  ) => {
+    const token =
+      localStorage.getItem(
+        "ace_admin_token"
+      );
+
+    if (!token) {
+      navigate("/admin/login");
+      return;
+    }
+
+    try {
+      setScreenshotLoading(true);
+      setError("");
+
+      const response =
+        await fetch(
+          `${API_URL}/orders/${order._id}/payment-screenshot`,
+          {
+            method: "GET",
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      if (!response.ok) {
+        let message =
+          "Unable to load payment screenshot.";
+
+        try {
+          const data =
+            await response.json();
+
+          message =
+            data.message || message;
+        } catch {
+          // Response was not JSON.
+        }
+
+        throw new Error(message);
+      }
+
+      const blob =
+        await response.blob();
+
+      const url =
+        window.URL.createObjectURL(
+          blob
+        );
+
+      setScreenshotUrl(url);
+      setScreenshotOrder(order);
+    } catch (err) {
+      console.error(
+        "Payment screenshot error:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Unable to load payment screenshot."
+      );
+    } finally {
+      setScreenshotLoading(false);
+    }
+  };
+
+  // ==========================================
+  // CLOSE SCREENSHOT
+  // ==========================================
+
+  const closeScreenshot = () => {
+    if (screenshotUrl) {
+      window.URL.revokeObjectURL(
+        screenshotUrl
+      );
+    }
+
+    setScreenshotUrl("");
+    setScreenshotOrder(null);
   };
 
   // ==========================================
   // APPROVE PAYMENT
   // ==========================================
-  const approvePayment = async (orderId) => {
-    const token = localStorage.getItem('ace_admin_token');
 
-    if (!token) {
-      navigate('/admin/login');
-      return;
-    }
+  const approvePayment = async (
+    orderId
+  ) => {
+    const token =
+      localStorage.getItem(
+        "ace_admin_token"
+      );
 
-    const confirmed = window.confirm(
-      'Are you sure you want to approve this payment?'
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to approve this payment?"
+      );
 
     if (!confirmed) {
       return;
@@ -130,67 +268,75 @@ export default function AdminDashboard() {
 
     try {
       setActionLoading(orderId);
-      setError('');
-      setSuccess('');
+      setError("");
+      setSuccess("");
 
-      const response = await fetch(
-        `${API_URL}/orders/${orderId}/payment`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            action: 'approve'
-          })
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/orders/${orderId}/payment`,
+          {
+            method: "PATCH",
 
-      const data = await response.json();
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              action: "approve",
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
           data.message ||
-            'Unable to approve payment.'
+            "Unable to approve payment."
         );
       }
 
       setSuccess(
-        data.message ||
-          'Payment approved successfully.'
+        "Payment approved successfully."
       );
 
       await fetchOrders();
     } catch (err) {
       console.error(
-        'Approve payment error:',
+        "Approve payment error:",
         err
       );
 
       setError(
         err.message ||
-          'Unable to approve payment.'
+          "Unable to approve payment."
       );
     } finally {
-      setActionLoading('');
+      setActionLoading("");
     }
   };
 
   // ==========================================
   // REJECT PAYMENT
   // ==========================================
-  const rejectPayment = async (orderId) => {
-    const token = localStorage.getItem('ace_admin_token');
 
-    if (!token) {
-      navigate('/admin/login');
-      return;
-    }
+  const rejectPayment = async (
+    orderId
+  ) => {
+    const token =
+      localStorage.getItem(
+        "ace_admin_token"
+      );
 
-    const reason = window.prompt(
-      'Enter the reason for rejecting this payment:'
-    );
+    const reason =
+      window.prompt(
+        "Enter the reason for rejecting this payment:"
+      );
 
     if (reason === null) {
       return;
@@ -198,11 +344,12 @@ export default function AdminDashboard() {
 
     const rejectionReason =
       reason.trim() ||
-      'Payment could not be verified.';
+      "Payment could not be verified.";
 
-    const confirmed = window.confirm(
-      'Are you sure you want to reject this payment?'
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to reject this payment?"
+      );
 
     if (!confirmed) {
       return;
@@ -210,187 +357,224 @@ export default function AdminDashboard() {
 
     try {
       setActionLoading(orderId);
-      setError('');
-      setSuccess('');
+      setError("");
+      setSuccess("");
 
-      const response = await fetch(
-        `${API_URL}/orders/${orderId}/payment`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            action: 'reject',
-            rejectionReason
-          })
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/orders/${orderId}/payment`,
+          {
+            method: "PATCH",
 
-      const data = await response.json();
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              action: "reject",
+              rejectionReason,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
           data.message ||
-            'Unable to reject payment.'
+            "Unable to reject payment."
         );
       }
 
       setSuccess(
-        data.message ||
-          'Payment rejected successfully.'
+        "Payment rejected successfully."
       );
 
       await fetchOrders();
     } catch (err) {
       console.error(
-        'Reject payment error:',
+        "Reject payment error:",
         err
       );
 
       setError(
         err.message ||
-          'Unable to reject payment.'
+          "Unable to reject payment."
       );
     } finally {
-      setActionLoading('');
+      setActionLoading("");
     }
   };
 
   // ==========================================
-  // EXPORT ORDERS TO EXCEL
+  // EXPORT ORDERS
   // ==========================================
-  const exportOrders = async (filter = 'all') => {
-    const token = localStorage.getItem(
-      'ace_admin_token'
-    );
+
+  const exportOrders = async (
+    filter = "all"
+  ) => {
+    const token =
+      localStorage.getItem(
+        "ace_admin_token"
+      );
 
     if (!token) {
-      navigate('/admin/login');
+      navigate("/admin/login");
       return;
     }
 
     try {
-      setExportLoading(filter);
-      setError('');
-      setSuccess('');
+      setError("");
+      setSuccess("");
 
-      const response = await fetch(
-        `${API_URL}/orders/export?filter=${filter}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`
+      const response =
+        await fetch(
+          `${API_URL}/orders/export?filter=${filter}`,
+          {
+            method: "GET",
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
           }
-        }
-      );
+        );
 
       if (!response.ok) {
-        let message = 'Unable to export orders.';
+        let message =
+          "Unable to export orders.";
 
         try {
-          const data = await response.json();
-          message = data.message || message;
+          const data =
+            await response.json();
+
+          message =
+            data.message || message;
         } catch {
-          // Response was not JSON
+          // Response was not JSON.
         }
 
         throw new Error(message);
       }
 
-      const blob = await response.blob();
+      const blob =
+        await response.blob();
 
-      const url = window.URL.createObjectURL(blob);
+      const url =
+        window.URL.createObjectURL(
+          blob
+        );
 
-      const link = document.createElement('a');
+      const link =
+        document.createElement("a");
 
       link.href = url;
 
       link.download =
-        filter === 'paid'
-          ? 'ACE-Paid-Orders.xlsx'
-          : 'ACE-All-Orders.xlsx';
+        filter === "paid"
+          ? "ACE-Paid-Orders.xlsx"
+          : "ACE-All-Orders.xlsx";
 
-      document.body.appendChild(link);
+      document.body.appendChild(
+        link
+      );
 
       link.click();
 
       link.remove();
 
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(
+        url
+      );
 
       setSuccess(
-        filter === 'paid'
-          ? 'Paid orders exported successfully.'
-          : 'All orders exported successfully.'
+        filter === "paid"
+          ? "Paid orders exported successfully."
+          : "All orders exported successfully."
       );
     } catch (err) {
       console.error(
-        'Export orders error:',
+        "Export orders error:",
         err
       );
 
       setError(
         err.message ||
-          'Unable to export orders.'
+          "Unable to export orders."
       );
-    } finally {
-      setExportLoading('');
     }
   };
 
   // ==========================================
-  // DASHBOARD COUNTS
+  // COUNTS
   // ==========================================
-  const pendingOrders = orders.filter(
-    (order) =>
-      order.paymentStatus === 'pending'
-  );
 
-  const approvedOrders = orders.filter(
-    (order) =>
-      order.paymentStatus === 'paid'
-  );
+  const pendingOrders =
+    orders.filter(
+      (order) =>
+        order.paymentStatus ===
+        "pending"
+    );
 
-  const rejectedOrders = orders.filter(
-    (order) =>
-      order.paymentStatus === 'failed'
-  );
+  const approvedOrders =
+    orders.filter(
+      (order) =>
+        order.paymentStatus ===
+        "paid"
+    );
+
+  const rejectedOrders =
+    orders.filter(
+      (order) =>
+        order.paymentStatus ===
+        "failed"
+    );
 
   const totalRevenue =
     approvedOrders.reduce(
       (total, order) =>
         total +
-        Number(order.totalAmount || 0),
+        Number(
+          order.totalAmount || 0
+        ),
       0
     );
 
-  const processedOrders = orders.filter(
-    (order) =>
-      order.paymentStatus !== 'pending'
-  );
+  // ==========================================
+  // DATE FORMAT
+  // ==========================================
 
-  // ==========================================
-  // FORMAT DATE
-  // ==========================================
-  const formatDate = (date) => {
+  const formatDate = (
+    date
+  ) => {
     if (!date) {
-      return '-';
+      return "-";
     }
 
-    return new Date(date).toLocaleString(
-      'en-IN'
-    );
+    return new Date(
+      date
+    ).toLocaleString("en-IN");
   };
 
   // ==========================================
   // LOADING
   // ==========================================
+
   if (!user || loading) {
     return (
-      <main style={styles.loadingPage}>
-        <h2>Loading ACE Admin...</h2>
+      <main
+        style={
+          styles.loadingPage
+        }
+      >
+        <h2>
+          Loading ACE Admin...
+        </h2>
       </main>
     );
   }
@@ -398,164 +582,326 @@ export default function AdminDashboard() {
   // ==========================================
   // DASHBOARD
   // ==========================================
+
   return (
     <main style={styles.page}>
+      {/* ======================================
+          TOP BAR
+          ====================================== */}
 
-      {/* TOP BAR */}
       <div style={styles.topBar}>
-
         <div>
           <div style={styles.brand}>
             ACE STORE
           </div>
 
-          <div style={styles.subtitle}>
+          <div
+            style={
+              styles.subtitle
+            }
+          >
             Senior Administration
           </div>
         </div>
 
-        <div style={styles.topActions}>
-
+        <div
+          style={
+            styles.topActions
+          }
+        >
           <button
-            style={styles.refreshButton}
-            onClick={fetchOrders}
+            style={
+              styles.refreshButton
+            }
+            onClick={
+              fetchOrders
+            }
           >
-            🔄 Refresh
+            Refresh
           </button>
 
           <button
-            style={styles.refreshButton}
-            onClick={() => exportOrders('all')}
-            disabled={exportLoading !== ''}
-          >
-            {exportLoading === 'all'
-              ? 'Exporting...'
-              : '📥 Export All'}
-          </button>
-
-          <button
-            style={styles.refreshButton}
-            onClick={() => exportOrders('paid')}
-            disabled={exportLoading !== ''}
-          >
-            {exportLoading === 'paid'
-              ? 'Exporting...'
-              : '📥 Export Paid'}
-          </button>
-
-          <button
-            style={styles.logoutButton}
+            style={
+              styles.logoutButton
+            }
             onClick={logout}
           >
             Logout
           </button>
-
         </div>
-
       </div>
 
-      {/* WELCOME */}
-      <section style={styles.welcome}>
+      {/* ======================================
+          WELCOME
+          ====================================== */}
 
-        <p style={styles.eyebrow}>
+      <section
+        style={styles.welcome}
+      >
+        <p
+          style={
+            styles.eyebrow
+          }
+        >
           ADMIN PANEL
         </p>
 
-        <h1 style={styles.heading}>
-          Welcome, {user.name || 'Senior'}
+        <h1
+          style={
+            styles.heading
+          }
+        >
+          Welcome,{" "}
+          {user.name ||
+            "Senior"}
         </h1>
 
-        <p style={styles.description}>
-          Manage ACE T-Shirt orders and
-          verify manual UPI payments.
+        <p
+          style={
+            styles.description
+          }
+        >
+          Manage ACE T-Shirt
+          orders and verify
+          manual UPI payments.
         </p>
-
       </section>
 
-      {/* MESSAGES */}
+      {/* ======================================
+          MESSAGES
+          ====================================== */}
+
       {success && (
-        <div style={styles.successMessage}>
-          ✓ {success}
+        <div
+          style={
+            styles.successMessage
+          }
+        >
+          {success}
         </div>
       )}
 
       {error && (
-        <div style={styles.errorMessage}>
+        <div
+          style={
+            styles.errorMessage
+          }
+        >
           {error}
         </div>
       )}
 
-      {/* STATISTICS */}
-      <section style={styles.statsGrid}>
+      {/* ======================================
+          STATISTICS
+          ====================================== */}
 
-        <div style={styles.statCard}>
-          <span style={styles.statLabel}>
+      <section
+        style={
+          styles.statsGrid
+        }
+      >
+        <div
+          style={
+            styles.statCard
+          }
+        >
+          <span
+            style={
+              styles.statLabel
+            }
+          >
             Pending Payments
           </span>
 
-          <strong style={styles.statNumber}>
+          <strong
+            style={
+              styles.statNumber
+            }
+          >
             {pendingOrders.length}
           </strong>
         </div>
 
-        <div style={styles.statCard}>
-          <span style={styles.statLabel}>
+        <div
+          style={
+            styles.statCard
+          }
+        >
+          <span
+            style={
+              styles.statLabel
+            }
+          >
             Approved Orders
           </span>
 
-          <strong style={styles.statNumber}>
+          <strong
+            style={
+              styles.statNumber
+            }
+          >
             {approvedOrders.length}
           </strong>
         </div>
 
-        <div style={styles.statCard}>
-          <span style={styles.statLabel}>
+        <div
+          style={
+            styles.statCard
+          }
+        >
+          <span
+            style={
+              styles.statLabel
+            }
+          >
             Rejected Payments
           </span>
 
-          <strong style={styles.statNumber}>
+          <strong
+            style={
+              styles.statNumber
+            }
+          >
             {rejectedOrders.length}
           </strong>
         </div>
 
-        <div style={styles.statCard}>
-          <span style={styles.statLabel}>
+        <div
+          style={
+            styles.statCard
+          }
+        >
+          <span
+            style={
+              styles.statLabel
+            }
+          >
             Revenue
           </span>
 
-          <strong style={styles.statNumber}>
-            ₹{totalRevenue.toFixed(2)}
+          <strong
+            style={
+              styles.statNumber
+            }
+          >
+            ₹
+            {totalRevenue.toFixed(
+              2
+            )}
           </strong>
         </div>
-
       </section>
 
-      {/* PENDING ORDERS */}
-      <section style={styles.section}>
+      {/* ======================================
+          EXPORT
+          ====================================== */}
 
-        <div style={styles.sectionHeader}>
+      <section
+        style={
+          styles.exportSection
+        }
+      >
+        <div>
+          <p
+            style={
+              styles.eyebrow
+            }
+          >
+            ORDER DATA
+          </p>
 
+          <h2
+            style={
+              styles.exportTitle
+            }
+          >
+            Export Orders
+          </h2>
+        </div>
+
+        <div
+          style={
+            styles.exportActions
+          }
+        >
+          <button
+            style={
+              styles.secondaryButton
+            }
+            onClick={() =>
+              exportOrders("all")
+            }
+          >
+            Export All Orders
+          </button>
+
+          <button
+            style={
+              styles.primaryButton
+            }
+            onClick={() =>
+              exportOrders("paid")
+            }
+          >
+            Export Paid Orders
+          </button>
+        </div>
+      </section>
+
+      {/* ======================================
+          PENDING ORDERS
+          ====================================== */}
+
+      <section
+        style={
+          styles.section
+        }
+      >
+        <div
+          style={
+            styles.sectionHeader
+          }
+        >
           <div>
-            <p style={styles.eyebrow}>
+            <p
+              style={
+                styles.eyebrow
+              }
+            >
               PAYMENT VERIFICATION
             </p>
 
-            <h2 style={styles.sectionTitle}>
+            <h2
+              style={
+                styles.sectionTitle
+              }
+            >
               Pending Orders
             </h2>
           </div>
 
-          <span style={styles.badge}>
-            {pendingOrders.length} Pending
+          <span
+            style={
+              styles.badge
+            }
+          >
+            {pendingOrders.length}{" "}
+            Pending
           </span>
-
         </div>
 
-        {pendingOrders.length === 0 ? (
-
-          <div style={styles.emptyCard}>
-
-            <div style={styles.emptyIcon}>
+        {pendingOrders.length ===
+        0 ? (
+          <div
+            style={
+              styles.emptyCard
+            }
+          >
+            <div
+              style={
+                styles.emptyIcon
+              }
+            >
               ✓
             </div>
 
@@ -564,371 +910,585 @@ export default function AdminDashboard() {
             </h3>
 
             <p>
-              All submitted payments have
-              been processed.
+              All submitted
+              payments have been
+              processed.
             </p>
-
           </div>
-
         ) : (
+          <div
+            style={
+              styles.ordersContainer
+            }
+          >
+            {pendingOrders.map(
+              (order) => {
+                const item =
+                  order.items?.[0];
 
-          <div style={styles.ordersContainer}>
-
-            {pendingOrders.map((order) => {
-
-              const item =
-                order.items?.[0] || {};
-
-              return (
-                <div
-                  key={order._id}
-                  style={styles.orderCard}
-                >
-
-                  {/* ORDER HEADER */}
-                  <div style={styles.orderHeader}>
-
-                    <div>
-
-                      <div style={styles.orderId}>
-                        Order #
-                        {order._id.slice(-8)}
-                      </div>
-
-                      <div style={styles.orderDate}>
-                        {formatDate(
-                          order.createdAt
-                        )}
-                      </div>
-
-                    </div>
+                return (
+                  <div
+                    key={
+                      order._id
+                    }
+                    style={
+                      styles.orderCard
+                    }
+                  >
+                    {/* ORDER HEADER */}
 
                     <div
                       style={
-                        styles.pendingBadge
+                        styles.orderHeader
                       }
                     >
-                      PAYMENT PENDING
+                      <div>
+                        <div
+                          style={
+                            styles.orderId
+                          }
+                        >
+                          Order #
+                          {order._id.slice(
+                            -8
+                          )}
+                        </div>
+
+                        <div
+                          style={
+                            styles.orderDate
+                          }
+                        >
+                          {formatDate(
+                            order.createdAt
+                          )}
+                        </div>
+                      </div>
+
+                      <div
+                        style={
+                          styles.pendingBadge
+                        }
+                      >
+                        PAYMENT PENDING
+                      </div>
                     </div>
 
-                  </div>
-
-                  {/* CUSTOMER INFORMATION */}
-                  <div style={styles.infoGrid}>
-
-                    <div style={styles.infoBlock}>
-                      <span
-                        style={styles.infoLabel}
-                      >
-                        CUSTOMER
-                      </span>
-
-                      <strong>
-                        {order.customerDetails
-                          ?.fullName ||
-                          'Customer'}
-                      </strong>
-                    </div>
-
-                    <div style={styles.infoBlock}>
-                      <span
-                        style={styles.infoLabel}
-                      >
-                        EMAIL
-                      </span>
-
-                      <strong>
-                        {order.customerEmail ||
-                          '-'}
-                      </strong>
-                    </div>
-
-                    <div style={styles.infoBlock}>
-                      <span
-                        style={styles.infoLabel}
-                      >
-                        PHONE
-                      </span>
-
-                      <strong>
-                        {order.customerDetails
-                          ?.phone ||
-                          '-'}
-                      </strong>
-                    </div>
-
-                    <div style={styles.infoBlock}>
-                      <span
-                        style={styles.infoLabel}
-                      >
-                        TOTAL
-                      </span>
-
-                      <strong
-                        style={styles.amount}
-                      >
-                        ₹
-                        {Number(
-                          order.totalAmount || 0
-                        ).toFixed(2)}
-                      </strong>
-                    </div>
-
-                  </div>
-
-                  {/* PRODUCT INFORMATION */}
-                  <div
-                    style={styles.productsSection}
-                  >
-
-                    <span
-                      style={styles.infoLabel}
-                    >
-                      ORDER DETAILS
-                    </span>
+                    {/* CUSTOMER */}
 
                     <div
-                      style={styles.productDetails}
+                      style={
+                        styles.infoGrid
+                      }
                     >
-
-                      <div>
+                      <div
+                        style={
+                          styles.infoBlock
+                        }
+                      >
                         <span
                           style={
-                            styles.detailLabel
+                            styles.infoLabel
                           }
                         >
-                          PRODUCT
+                          CUSTOMER
                         </span>
 
                         <strong>
-                          {item.name ||
-                            'ACE T-Shirt'}
+                          {order
+                            .customerDetails
+                            ?.fullName ||
+                            "Customer"}
                         </strong>
                       </div>
 
-                      <div>
+                      <div
+                        style={
+                          styles.infoBlock
+                        }
+                      >
                         <span
                           style={
-                            styles.detailLabel
+                            styles.infoLabel
                           }
                         >
-                          GENDER
+                          EMAIL
                         </span>
 
                         <strong>
-                          {item.gender || '-'}
+                          {order.customerEmail ||
+                            "-"}
                         </strong>
                       </div>
 
-                      <div>
+                      <div
+                        style={
+                          styles.infoBlock
+                        }
+                      >
                         <span
                           style={
-                            styles.detailLabel
+                            styles.infoLabel
                           }
                         >
-                          NECK TYPE
+                          PHONE
                         </span>
 
                         <strong>
-                          {item.neckType ||
-                            'Collar'}
+                          {order
+                            .customerDetails
+                            ?.phone ||
+                            "-"}
                         </strong>
                       </div>
 
-                      <div>
+                      <div
+                        style={
+                          styles.infoBlock
+                        }
+                      >
                         <span
                           style={
-                            styles.detailLabel
+                            styles.infoLabel
                           }
                         >
-                          SIZE
+                          TOTAL
                         </span>
 
-                        <strong>
-                          {item.size || '-'}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span
+                        <strong
                           style={
-                            styles.detailLabel
+                            styles.amount
                           }
                         >
-                          PAYMENT
-                        </span>
-
-                        <strong>
-                          {order.paymentMethod ||
-                            'UPI'}
+                          ₹
+                          {Number(
+                            order.totalAmount ||
+                              0
+                          ).toFixed(
+                            2
+                          )}
                         </strong>
                       </div>
-
                     </div>
 
-                  </div>
+                    {/* ITEM */}
 
-                  {/* ACTION BUTTONS */}
-                  <div style={styles.actions}>
-
-                    <button
-                      style={{
-                        ...styles.rejectButton,
-                        opacity:
-                          actionLoading ===
-                          order._id
-                            ? 0.6
-                            : 1
-                      }}
-                      onClick={() =>
-                        rejectPayment(
-                          order._id
-                        )
-                      }
-                      disabled={
-                        actionLoading ===
-                        order._id
+                    <div
+                      style={
+                        styles.productsSection
                       }
                     >
-                      {actionLoading ===
-                      order._id
-                        ? 'Processing...'
-                        : '✕ Reject Payment'}
-                    </button>
+                      <span
+                        style={
+                          styles.infoLabel
+                        }
+                      >
+                        ORDER DETAILS
+                      </span>
 
-                    <button
-                      style={{
-                        ...styles.approveButton,
-                        opacity:
-                          actionLoading ===
-                          order._id
-                            ? 0.6
-                            : 1
-                      }}
-                      onClick={() =>
-                        approvePayment(
-                          order._id
-                        )
-                      }
-                      disabled={
-                        actionLoading ===
-                        order._id
+                      <div
+                        style={
+                          styles.productRow
+                        }
+                      >
+                        <div>
+                          <strong>
+                            {item?.name ||
+                              "ACE T-Shirt"}
+                          </strong>
+
+                          <span
+                            style={
+                              styles.itemMeta
+                            }
+                          >
+                            Style:{" "}
+                            {item
+                              ?.neckType ||
+                              "Collar"}
+                            {" • "}
+                            Size:{" "}
+                            {item
+                              ?.size ||
+                              "-"}
+                          </span>
+                        </div>
+
+                        <strong>
+                          ₹
+                          {Number(
+                            item?.price ||
+                              order.totalAmount ||
+                              0
+                          ).toFixed(
+                            2
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* PAYMENT SCREENSHOT */}
+
+                    <div
+                      style={
+                        styles.screenshotSection
                       }
                     >
-                      {actionLoading ===
-                      order._id
-                        ? 'Processing...'
-                        : '✓ Approve Payment'}
-                    </button>
+                      <div>
+                        <span
+                          style={
+                            styles.infoLabel
+                          }
+                        >
+                          PAYMENT PROOF
+                        </span>
 
+                        <p
+                          style={
+                            styles.screenshotText
+                          }
+                        >
+                          {order
+                            .paymentScreenshot
+                            ?.originalName ||
+                            "Payment screenshot uploaded"}
+                        </p>
+                      </div>
+
+                      <button
+                        style={
+                          styles.viewScreenshotButton
+                        }
+                        onClick={() =>
+                          viewPaymentScreenshot(
+                            order
+                          )
+                        }
+                        disabled={
+                          screenshotLoading
+                        }
+                      >
+                        {screenshotLoading
+                          ? "Loading..."
+                          : "View Payment Screenshot"}
+                      </button>
+                    </div>
+
+                    {/* ACTIONS */}
+
+                    <div
+                      style={
+                        styles.actions
+                      }
+                    >
+                      <button
+                        style={{
+                          ...styles.rejectButton,
+                          opacity:
+                            actionLoading ===
+                            order._id
+                              ? 0.6
+                              : 1,
+                        }}
+                        onClick={() =>
+                          rejectPayment(
+                            order._id
+                          )
+                        }
+                        disabled={
+                          actionLoading ===
+                          order._id
+                        }
+                      >
+                        {actionLoading ===
+                        order._id
+                          ? "Processing..."
+                          : "✕ Reject Payment"}
+                      </button>
+
+                      <button
+                        style={{
+                          ...styles.approveButton,
+                          opacity:
+                            actionLoading ===
+                            order._id
+                              ? 0.6
+                              : 1,
+                        }}
+                        onClick={() =>
+                          approvePayment(
+                            order._id
+                          )
+                        }
+                        disabled={
+                          actionLoading ===
+                          order._id
+                        }
+                      >
+                        {actionLoading ===
+                        order._id
+                          ? "Processing..."
+                          : "✓ Approve Payment"}
+                      </button>
+                    </div>
                   </div>
-
-                </div>
-              );
-            })}
-
+                );
+              }
+            )}
           </div>
-
         )}
-
       </section>
 
-      {/* PROCESSED ORDERS */}
-      <section style={styles.section}>
+      {/* ======================================
+          PROCESSED ORDERS
+          ====================================== */}
 
-        <div style={styles.sectionHeader}>
-
+      <section
+        style={
+          styles.section
+        }
+      >
+        <div
+          style={
+            styles.sectionHeader
+          }
+        >
           <div>
-            <p style={styles.eyebrow}>
+            <p
+              style={
+                styles.eyebrow
+              }
+            >
               ORDER HISTORY
             </p>
 
-            <h2 style={styles.sectionTitle}>
+            <h2
+              style={
+                styles.sectionTitle
+              }
+            >
               Processed Orders
             </h2>
           </div>
-
         </div>
 
-        {processedOrders.length === 0 ? (
-
-          <div style={styles.emptyCard}>
+        {orders.filter(
+          (order) =>
+            order.paymentStatus !==
+            "pending"
+        ).length === 0 ? (
+          <div
+            style={
+              styles.emptyCard
+            }
+          >
             <p>
-              No processed orders yet.
+              No processed orders
+              yet.
             </p>
           </div>
-
         ) : (
+          <div
+            style={
+              styles.historyTable
+            }
+          >
+            <div
+              style={
+                styles.tableHeader
+              }
+            >
+              <span>
+                ORDER
+              </span>
 
-          <div style={styles.historyTable}>
+              <span>
+                CUSTOMER
+              </span>
 
-            {/* TABLE HEADER */}
-            <div style={styles.tableHeader}>
+              <span>
+                AMOUNT
+              </span>
 
-              <span>ORDER</span>
-              <span>CUSTOMER</span>
-              <span>PRODUCT</span>
-              <span>AMOUNT</span>
-              <span>PAYMENT</span>
-              <span>STATUS</span>
+              <span>
+                PAYMENT
+              </span>
 
+              <span>
+                STATUS
+              </span>
             </div>
 
-            {/* TABLE ROWS */}
-            {processedOrders.map((order) => {
-
-              const item =
-                order.items?.[0] || {};
-
-              return (
+            {orders
+              .filter(
+                (order) =>
+                  order.paymentStatus !==
+                  "pending"
+              )
+              .map((order) => (
                 <div
-                  key={order._id}
-                  style={styles.tableRow}
+                  key={
+                    order._id
+                  }
+                  style={
+                    styles.tableRow
+                  }
                 >
-
                   <span>
-                    #{order._id.slice(-8)}
+                    #
+                    {order._id.slice(
+                      -8
+                    )}
                   </span>
 
                   <span>
-                    {order.customerDetails
+                    {order
+                      .customerDetails
                       ?.fullName ||
-                      'Customer'}
-                  </span>
-
-                  <span>
-                    {item.name ||
-                      'ACE T-Shirt'}
+                      "Customer"}
                   </span>
 
                   <span>
                     ₹
                     {Number(
-                      order.totalAmount || 0
-                    ).toFixed(2)}
+                      order.totalAmount ||
+                        0
+                    ).toFixed(
+                      2
+                    )}
                   </span>
 
                   <span>
                     {order.paymentStatus ===
-                    'paid'
-                      ? 'PAID'
-                      : 'FAILED'}
+                    "paid"
+                      ? "PAID"
+                      : "FAILED"}
                   </span>
 
                   <span>
                     {order.orderStatus}
                   </span>
-
                 </div>
-              );
-            })}
-
+              ))}
           </div>
-
         )}
-
       </section>
 
+      {/* ======================================
+          SCREENSHOT MODAL
+          ====================================== */}
+
+      {screenshotOrder &&
+        screenshotUrl && (
+          <div
+            style={
+              styles.modalOverlay
+            }
+            onClick={
+              closeScreenshot
+            }
+          >
+            <div
+              style={
+                styles.modal
+              }
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <div
+                style={
+                  styles.modalHeader
+                }
+              >
+                <div>
+                  <p
+                    style={
+                      styles.eyebrow
+                    }
+                  >
+                    PAYMENT PROOF
+                  </p>
+
+                  <h2
+                    style={
+                      styles.modalTitle
+                    }
+                  >
+                    Order #
+                    {screenshotOrder._id.slice(
+                      -8
+                    )}
+                  </h2>
+                </div>
+
+                <button
+                  style={
+                    styles.closeButton
+                  }
+                  onClick={
+                    closeScreenshot
+                  }
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div
+                style={
+                  styles.modalContent
+                }
+              >
+                <img
+                  src={
+                    screenshotUrl
+                  }
+                  alt="Payment screenshot"
+                  style={
+                    styles.screenshotImage
+                  }
+                />
+              </div>
+
+              <div
+                style={
+                  styles.modalFooter
+                }
+              >
+                <div>
+                  <strong>
+                    {screenshotOrder
+                      .customerDetails
+                      ?.fullName ||
+                      "Customer"}
+                  </strong>
+
+                  <span
+                    style={
+                      styles.modalMeta
+                    }
+                  >
+                    {screenshotOrder
+                      .paymentScreenshot
+                      ?.originalName ||
+                      "Payment Screenshot"}
+                  </span>
+                </div>
+
+                <button
+                  style={
+                    styles.primaryButton
+                  }
+                  onClick={
+                    closeScreenshot
+                  }
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </main>
   );
 }
@@ -936,351 +1496,564 @@ export default function AdminDashboard() {
 // ==========================================
 // STYLES
 // ==========================================
+
 const styles = {
   page: {
-    minHeight: '100vh',
-    background: '#f5f5f5',
-    color: '#111',
-    padding: '0 40px 60px',
-    boxSizing: 'border-box',
-    fontFamily: 'Arial, sans-serif'
+    minHeight: "100vh",
+    background: "#f5f5f5",
+    color: "#111",
+    padding:
+      "0 40px 60px",
+    boxSizing: "border-box",
+    fontFamily:
+      "Arial, sans-serif",
   },
 
   loadingPage: {
-    minHeight: '100vh',
-    background: '#000',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: 'Arial, sans-serif'
+    minHeight: "100vh",
+    background: "#000",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily:
+      "Arial, sans-serif",
   },
 
   topBar: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '28px 0',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #ddd',
-    gap: '20px'
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "28px 0",
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    borderBottom:
+      "1px solid #ddd",
   },
 
   brand: {
-    fontSize: '22px',
-    fontWeight: '900',
-    letterSpacing: '-1px'
+    fontSize: "22px",
+    fontWeight: "900",
+    letterSpacing: "-1px",
   },
 
   subtitle: {
-    fontSize: '12px',
-    color: '#777',
-    marginTop: '4px'
+    fontSize: "12px",
+    color: "#777",
+    marginTop: "4px",
   },
 
   topActions: {
-    display: 'flex',
-    gap: '10px',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end'
+    display: "flex",
+    gap: "10px",
   },
 
   refreshButton: {
-    background: '#fff',
-    color: '#111',
-    border: '1px solid #111',
-    borderRadius: '7px',
-    padding: '10px 18px',
-    fontWeight: '700',
-    cursor: 'pointer'
+    background: "#fff",
+    color: "#111",
+    border:
+      "1px solid #111",
+    borderRadius: "7px",
+    padding:
+      "10px 18px",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 
   logoutButton: {
-    background: '#000',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '7px',
-    padding: '10px 18px',
-    fontWeight: '700',
-    cursor: 'pointer'
+    background: "#000",
+    color: "#fff",
+    border: "none",
+    borderRadius: "7px",
+    padding:
+      "10px 18px",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 
   welcome: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '45px 0 30px'
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding:
+      "45px 0 30px",
   },
 
   eyebrow: {
-    fontSize: '11px',
-    fontWeight: '800',
-    letterSpacing: '2px',
-    color: '#777',
-    margin: '0 0 8px'
+    fontSize: "11px",
+    fontWeight: "800",
+    letterSpacing: "2px",
+    color: "#777",
+    margin:
+      "0 0 8px",
   },
 
   heading: {
-    fontSize: '36px',
-    margin: '0',
-    letterSpacing: '-1.5px'
+    fontSize: "36px",
+    margin: "0",
+    letterSpacing:
+      "-1.5px",
   },
 
   description: {
-    color: '#666',
-    marginTop: '10px'
+    color: "#666",
+    marginTop: "10px",
   },
 
   successMessage: {
-    maxWidth: '1200px',
-    margin: '0 auto 20px',
-    background: '#e9e9e9',
-    border: '1px solid #bbb',
-    padding: '14px 16px',
-    borderRadius: '8px',
-    fontWeight: '600'
+    maxWidth: "1200px",
+    margin:
+      "0 auto 20px",
+    background: "#e9e9e9",
+    border:
+      "1px solid #bbb",
+    padding:
+      "14px 16px",
+    borderRadius: "8px",
+    fontWeight: "600",
   },
 
   errorMessage: {
-    maxWidth: '1200px',
-    margin: '0 auto 20px',
-    background: '#fff',
-    border: '1px solid #111',
-    padding: '14px 16px',
-    borderRadius: '8px',
-    fontWeight: '600'
+    maxWidth: "1200px",
+    margin:
+      "0 auto 20px",
+    background: "#fff",
+    border:
+      "1px solid #111",
+    padding:
+      "14px 16px",
+    borderRadius: "8px",
+    fontWeight: "600",
   },
 
   statsGrid: {
-    maxWidth: '1200px',
-    margin: '0 auto 50px',
-    display: 'grid',
+    maxWidth: "1200px",
+    margin:
+      "0 auto 40px",
+    display: "grid",
     gridTemplateColumns:
-      'repeat(auto-fit, minmax(210px, 1fr))',
-    gap: '16px'
+      "repeat(4, 1fr)",
+    gap: "16px",
   },
 
   statCard: {
-    background: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: '12px',
-    padding: '22px'
+    background: "#fff",
+    border:
+      "1px solid #ddd",
+    borderRadius: "12px",
+    padding: "22px",
+    display: "flex",
+    flexDirection:
+      "column",
+    gap: "10px",
   },
 
   statLabel: {
-    display: 'block',
-    color: '#777',
-    fontSize: '12px',
-    fontWeight: '700',
-    marginBottom: '12px'
+    fontSize: "12px",
+    textTransform:
+      "uppercase",
+    letterSpacing:
+      "1px",
+    color: "#777",
+    fontWeight: "700",
   },
 
   statNumber: {
-    fontSize: '28px'
+    fontSize: "28px",
+    letterSpacing:
+      "-1px",
+  },
+
+  exportSection: {
+    maxWidth: "1200px",
+    margin:
+      "0 auto 40px",
+    background: "#fff",
+    border:
+      "1px solid #ddd",
+    borderRadius: "12px",
+    padding: "24px",
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    gap: "20px",
+  },
+
+  exportTitle: {
+    margin: 0,
+    fontSize: "22px",
+  },
+
+  exportActions: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  secondaryButton: {
+    background: "#fff",
+    color: "#111",
+    border:
+      "1px solid #111",
+    borderRadius: "7px",
+    padding:
+      "11px 18px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  primaryButton: {
+    background: "#000",
+    color: "#fff",
+    border: "none",
+    borderRadius: "7px",
+    padding:
+      "11px 18px",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 
   section: {
-    maxWidth: '1200px',
-    margin: '0 auto 50px'
+    maxWidth: "1200px",
+    margin:
+      "0 auto 45px",
   },
 
   sectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: '20px'
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    marginBottom:
+      "18px",
   },
 
   sectionTitle: {
-    margin: '0',
-    fontSize: '28px'
+    margin: 0,
+    fontSize: "28px",
+    letterSpacing:
+      "-1px",
   },
 
   badge: {
-    background: '#000',
-    color: '#fff',
-    padding: '7px 12px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: '700'
-  },
-
-  emptyCard: {
-    background: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: '12px',
-    padding: '50px',
-    textAlign: 'center'
-  },
-
-  emptyIcon: {
-    width: '45px',
-    height: '45px',
-    borderRadius: '50%',
-    background: '#000',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '0 auto 15px',
-    fontWeight: '800'
+    background: "#000",
+    color: "#fff",
+    borderRadius: "999px",
+    padding:
+      "8px 14px",
+    fontSize: "12px",
+    fontWeight: "700",
   },
 
   ordersContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px'
+    display: "flex",
+    flexDirection:
+      "column",
+    gap: "18px",
   },
 
   orderCard: {
-    background: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: '14px',
-    padding: '25px'
+    background: "#fff",
+    border:
+      "1px solid #ddd",
+    borderRadius: "14px",
+    padding: "24px",
   },
 
   orderHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: '18px',
-    borderBottom: '1px solid #eee',
-    gap: '15px'
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    gap: "20px",
+    marginBottom:
+      "20px",
   },
 
   orderId: {
-    fontSize: '16px',
-    fontWeight: '800'
+    fontSize: "18px",
+    fontWeight: "800",
   },
 
   orderDate: {
-    fontSize: '12px',
-    color: '#777',
-    marginTop: '5px'
+    fontSize: "12px",
+    color: "#777",
+    marginTop: "5px",
   },
 
   pendingBadge: {
-    border: '1px solid #111',
-    padding: '7px 10px',
-    borderRadius: '5px',
-    fontSize: '10px',
-    fontWeight: '800'
+    background: "#000",
+    color: "#fff",
+    borderRadius: "999px",
+    padding:
+      "7px 12px",
+    fontSize: "10px",
+    fontWeight: "800",
+    letterSpacing:
+      "0.8px",
   },
 
   infoGrid: {
-    display: 'grid',
+    display: "grid",
     gridTemplateColumns:
-      'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: '20px',
-    padding: '20px 0'
+      "repeat(4, 1fr)",
+    gap: "16px",
+    paddingBottom:
+      "20px",
+    borderBottom:
+      "1px solid #eee",
   },
 
   infoBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '5px'
+    display: "flex",
+    flexDirection:
+      "column",
+    gap: "7px",
+    minWidth: 0,
   },
 
   infoLabel: {
-    fontSize: '10px',
-    color: '#888',
-    fontWeight: '800',
-    letterSpacing: '1px'
+    fontSize: "10px",
+    fontWeight: "800",
+    letterSpacing:
+      "1.5px",
+    color: "#888",
   },
 
   amount: {
-    fontSize: '20px'
+    fontSize: "20px",
   },
 
   productsSection: {
-    borderTop: '1px solid #eee',
-    paddingTop: '18px'
+    padding:
+      "20px 0",
+    borderBottom:
+      "1px solid #eee",
   },
 
-  productDetails: {
-    display: 'grid',
-    gridTemplateColumns:
-      'repeat(auto-fit, minmax(140px, 1fr))',
-    gap: '18px',
-    marginTop: '15px'
+  productRow: {
+    marginTop: "12px",
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    gap: "20px",
+    padding: "14px",
+    border:
+      "1px solid #eee",
+    borderRadius: "9px",
   },
 
-  productDetails: {
-    display: 'grid',
-    gridTemplateColumns:
-      'repeat(auto-fit, minmax(140px, 1fr))',
-    gap: '18px',
-    marginTop: '15px'
+  itemMeta: {
+    display: "block",
+    fontSize: "12px",
+    color: "#777",
+    marginTop: "5px",
   },
 
-  detailLabel: {
-    display: 'block',
-    fontSize: '10px',
-    color: '#888',
-    fontWeight: '800',
-    letterSpacing: '1px',
-    marginBottom: '5px'
+  screenshotSection: {
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    gap: "20px",
+    padding:
+      "20px 0",
+    borderBottom:
+      "1px solid #eee",
+  },
+
+  screenshotText: {
+    margin:
+      "7px 0 0",
+    color: "#555",
+    fontSize: "13px",
+  },
+
+  viewScreenshotButton: {
+    background: "#fff",
+    color: "#111",
+    border:
+      "1px solid #111",
+    borderRadius: "7px",
+    padding:
+      "10px 16px",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 
   actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '10px',
-    marginTop: '22px',
-    paddingTop: '20px',
-    borderTop: '1px solid #eee',
-    flexWrap: 'wrap'
+    display: "flex",
+    justifyContent:
+      "flex-end",
+    gap: "10px",
+    paddingTop:
+      "20px",
   },
 
   rejectButton: {
-    background: '#fff',
-    color: '#111',
-    border: '1px solid #111',
-    borderRadius: '7px',
-    padding: '12px 18px',
-    fontWeight: '700',
-    cursor: 'pointer'
+    background: "#fff",
+    color: "#111",
+    border:
+      "1px solid #111",
+    borderRadius: "7px",
+    padding:
+      "11px 18px",
+    fontWeight: "700",
+    cursor: "pointer",
   },
 
   approveButton: {
-    background: '#000',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '7px',
-    padding: '12px 18px',
-    fontWeight: '700',
-    cursor: 'pointer'
+    background: "#000",
+    color: "#fff",
+    border: "none",
+    borderRadius: "7px",
+    padding:
+      "11px 18px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  emptyCard: {
+    background: "#fff",
+    border:
+      "1px solid #ddd",
+    borderRadius: "12px",
+    padding: "50px 20px",
+    textAlign: "center",
+  },
+
+  emptyIcon: {
+    width: "50px",
+    height: "50px",
+    borderRadius: "50%",
+    background: "#000",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin:
+      "0 auto 15px",
+    fontSize: "22px",
   },
 
   historyTable: {
-    background: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: '12px',
-    overflow: 'auto'
+    background: "#fff",
+    border:
+      "1px solid #ddd",
+    borderRadius: "12px",
+    overflow: "hidden",
   },
 
   tableHeader: {
-    display: 'grid',
+    display: "grid",
     gridTemplateColumns:
-      '1fr 1.5fr 1.5fr 1fr 1fr 1.5fr',
-    minWidth: '850px',
-    gap: '15px',
-    padding: '15px 20px',
-    background: '#f0f0f0',
-    fontSize: '10px',
-    fontWeight: '800',
-    letterSpacing: '1px'
+      "1.2fr 2fr 1fr 1fr 1.5fr",
+    gap: "20px",
+    padding: "15px 18px",
+    background: "#000",
+    color: "#fff",
+    fontSize: "10px",
+    letterSpacing:
+      "1.2px",
+    fontWeight: "800",
   },
 
   tableRow: {
-    display: 'grid',
+    display: "grid",
     gridTemplateColumns:
-      '1fr 1.5fr 1.5fr 1fr 1fr 1.5fr',
-    minWidth: '850px',
-    gap: '15px',
-    padding: '17px 20px',
-    borderTop: '1px solid #eee',
-    fontSize: '13px',
-    alignItems: 'center'
-  }
+      "1.2fr 2fr 1fr 1fr 1.5fr",
+    gap: "20px",
+    padding: "16px 18px",
+    borderBottom:
+      "1px solid #eee",
+    alignItems: "center",
+    fontSize: "13px",
+  },
+
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background:
+      "rgba(0,0,0,0.78)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+    zIndex: 9999,
+  },
+
+  modal: {
+    background: "#fff",
+    width: "min(900px, 100%)",
+    maxHeight: "90vh",
+    borderRadius: "14px",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection:
+      "column",
+  },
+
+  modalHeader: {
+    padding: "18px 20px",
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    borderBottom:
+      "1px solid #ddd",
+  },
+
+  modalTitle: {
+    margin: 0,
+    fontSize: "22px",
+  },
+
+  closeButton: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "50%",
+    border:
+      "1px solid #111",
+    background: "#fff",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+
+  modalContent: {
+    padding: "20px",
+    overflow: "auto",
+    background: "#f7f7f7",
+    display: "flex",
+    justifyContent:
+      "center",
+  },
+
+  screenshotImage: {
+    maxWidth: "100%",
+    maxHeight: "60vh",
+    objectFit: "contain",
+    display: "block",
+    borderRadius: "8px",
+    background: "#fff",
+  },
+
+  modalFooter: {
+    padding: "16px 20px",
+    display: "flex",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+    gap: "20px",
+    borderTop:
+      "1px solid #ddd",
+  },
+
+  modalMeta: {
+    display: "block",
+    fontSize: "12px",
+    color: "#777",
+    marginTop: "4px",
+  },
 };

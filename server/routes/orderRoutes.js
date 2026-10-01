@@ -1,35 +1,26 @@
-import { Router } from 'express';
+import express from 'express';
 
 import {
-  allOrders,
   createOrder,
   myOrders,
+  allOrders,
   updateOrderStatus,
   verifyPayment,
-  exportOrders
+  exportOrders,
+  getPaymentScreenshot,
 } from '../controllers/orderController.js';
 
-import { adminOnly, protect } from '../middleware/auth.js';
+import protect from '../middleware/authMiddleware.js';
+import adminOnly from '../middleware/adminMiddleware.js';
+import uploadPaymentScreenshot from '../middleware/uploadPaymentScreenshot.js';
 
-const router = Router();
-
-
-// ==========================================
-// STUDENT
-// Guest checkout - NO LOGIN REQUIRED
-// ==========================================
-router.post('/', createOrder);
+const router = express.Router();
 
 
 // ==========================================
-// LOGGED-IN USER
+// ADMIN EXPORT
 // ==========================================
-router.get('/mine', protect, myOrders);
 
-
-// ==========================================
-// ADMIN / SENIOR
-// ==========================================
 router.get(
   '/export',
   protect,
@@ -37,10 +28,60 @@ router.get(
   exportOrders
 );
 
-router.get('/', protect, adminOnly, allOrders);
+
+// ==========================================
+// ADMIN - ALL ORDERS
+// ==========================================
+
+router.get(
+  '/',
+  protect,
+  adminOnly,
+  allOrders
+);
 
 
-// Update shipping/order status
+// ==========================================
+// USER - MY ORDERS
+// ==========================================
+
+router.get(
+  '/mine',
+  protect,
+  myOrders
+);
+
+
+// ==========================================
+// CREATE ORDER
+// PAYMENT SCREENSHOT UPLOAD
+// ==========================================
+
+router.post(
+  '/',
+  uploadPaymentScreenshot.single(
+    'paymentScreenshot'
+  ),
+  createOrder
+);
+
+
+// ==========================================
+// ADMIN - VIEW PAYMENT SCREENSHOT
+// ==========================================
+
+router.get(
+  '/:id/payment-screenshot',
+  protect,
+  adminOnly,
+  getPaymentScreenshot
+);
+
+
+// ==========================================
+// ADMIN - UPDATE ORDER STATUS
+// ==========================================
+
 router.patch(
   '/:id/status',
   protect,
@@ -49,15 +90,16 @@ router.patch(
 );
 
 
-// Approve / reject payment
+// ==========================================
+// ADMIN - VERIFY PAYMENT
+// ==========================================
+
 router.patch(
   '/:id/payment',
   protect,
   adminOnly,
   verifyPayment
 );
-
-
 
 
 export default router;
