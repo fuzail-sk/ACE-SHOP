@@ -48,16 +48,11 @@ const orderSchema = new mongoose.Schema(
           min: 0
         },
 
-        gender: {
-          type: String,
-          enum: ['Male', 'Female'],
-          required: true
-        },
-
         neckType: {
           type: String,
-          enum: ['Collar', 'Round Neck'],
-          required: true
+          enum: ['Collar'],
+          required: true,
+          default: 'Collar'
         },
 
         size: {
