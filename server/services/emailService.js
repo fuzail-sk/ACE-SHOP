@@ -1,39 +1,107 @@
 import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
 
-const OFFICIAL_EMAIL = 'rmdssoe.aces@sinhgad.edu';
+const OFFICIAL_EMAIL =
+  'rmdssoe.aces@sinhgad.edu';
 
-function transporter() {
+function getGmailClient() {
+  const clientId =
+    process.env.GMAIL_CLIENT_ID;
+
+  const clientSecret =
+    process.env.GMAIL_CLIENT_SECRET;
+
+  const refreshToken =
+    process.env.GMAIL_REFRESH_TOKEN;
+
   if (
-    !process.env.SMTP_HOST ||
-    !process.env.SMTP_USER ||
-    !process.env.SMTP_PASS
+    !clientId ||
+    !clientSecret ||
+    !refreshToken
   ) {
-    return null;
+    throw new Error(
+      'Gmail API credentials are not configured.'
+    );
   }
 
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: Number(process.env.SMTP_PORT || 587) === 465,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
+  const oauth2Client =
+    new google.auth.OAuth2(
+      clientId,
+      clientSecret
+    );
+
+  oauth2Client.setCredentials({
+    refresh_token: refreshToken
   });
+
+  return google.gmail({
+    version: 'v1',
+    auth: oauth2Client
+  });
+}
+
+function toBase64Url(buffer) {
+  return Buffer.from(buffer)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+async function createMimeMessage({
+  to,
+  subject,
+  text,
+  html,
+  attachment
+}) {
+  const transport =
+    nodemailer.createTransport({
+      streamTransport: true,
+      buffer: true,
+      newline: 'unix'
+    });
+
+  const info =
+    await transport.sendMail({
+      from: `"ACE Store" <${OFFICIAL_EMAIL}>`,
+
+      to,
+
+      subject,
+
+      text,
+
+      html,
+
+      attachments: attachment
+        ? [
+            {
+              filename:
+                attachment.filename,
+
+              content:
+                attachment.content,
+
+              contentType:
+                'application/pdf'
+            }
+          ]
+        : []
+    });
+
+  return info.message;
 }
 
 export async function sendOrderEmail({
   to,
   order,
-  invoice,
+  invoice
 }) {
-  const mailer = transporter();
-
-  if (!mailer) {
-    return {
-      skipped: true,
-      reason: 'SMTP is not configured',
-    };
+  if (!to) {
+    throw new Error(
+      'Customer email address is missing.'
+    );
   }
 
   const invoiceNumber =
@@ -41,96 +109,110 @@ export async function sendOrderEmail({
     order._id?.toString() ||
     'invoice';
 
-  return mailer.sendMail({
-    from: `"ACE Store" <${OFFICIAL_EMAIL}>`,
+  const customerName =
+    order.customerDetails?.fullName ||
+    'Customer';
 
-    to,
+  const amount =
+    Number(
+      order.totalAmount || 0
+    ).toFixed(2);
 
-    subject: `ACE Store Invoice ${invoiceNumber}`,
+  const subject =
+    `ACE Store Invoice ${invoiceNumber}`;
 
-    text: [
-      `Hello ${
-        order.customerDetails?.fullName ||
-        'Customer'
-      },`,
+  const text = [
+    `Hello ${customerName},`,
+    '',
+    'Your ACE T-Shirt order has been approved and your payment has been verified.',
+    '',
+    `Invoice Number: ${invoiceNumber}`,
+    `Order Amount: ₹${amount}`,
+    '',
+    'Your invoice is attached to this email.',
+    '',
+    'Regards,',
+    'ACE Store',
+    'ACE / Sinhgad Institute'
+  ].join('\n');
 
-      '',
+  const html = `
+    <div
+      style="
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #111;
+      "
+    >
+      <h2>ACE Store — Order Confirmed</h2>
 
-      'Your ACE T-Shirt order has been approved and your payment has been verified.',
+      <p>
+        Hello ${customerName},
+      </p>
 
-      '',
+      <p>
+        Your ACE T-Shirt order has been approved
+        and your payment has been verified
+        successfully.
+      </p>
 
-      `Invoice Number: ${invoiceNumber}`,
+      <p>
+        <strong>Invoice Number:</strong>
+        ${invoiceNumber}
+        <br />
 
-      `Order Amount: ₹${Number(
-        order.totalAmount || 0
-      ).toFixed(2)}`,
+        <strong>Order Amount:</strong>
+        ₹${amount}
+      </p>
 
-      '',
+      <p>
+        Your invoice is attached to this email.
+      </p>
 
-      'Your invoice is attached to this email.',
+      <p>
+        Regards,<br />
+        <strong>ACE Store</strong><br />
+        ACE / Sinhgad Institute
+      </p>
+    </div>
+  `;
 
-      '',
+  const mimeMessage =
+    await createMimeMessage({
+      to,
+      subject,
+      text,
+      html,
 
-      'Regards,',
+      attachment: {
+        filename:
+          `${invoiceNumber}.pdf`,
 
-      'ACE Store',
+        content: invoice
+      }
+    });
 
-      'ACE / Sinhgad Institute',
-    ].join('\n'),
+  const raw =
+    toBase64Url(mimeMessage);
 
-    html: `
-      <div
-        style="
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-        "
-      >
-        <h2>ACE Store — Order Confirmed</h2>
+  const gmail =
+    getGmailClient();
 
-        <p>
-          Hello ${
-            order.customerDetails?.fullName ||
-            'Customer'
-          },
-        </p>
+  const response =
+    await gmail.users.messages.send({
+      userId: 'me',
 
-        <p>
-          Your ACE T-Shirt order has been approved
-          and your payment has been verified
-          successfully.
-        </p>
+      requestBody: {
+        raw
+      }
+    });
 
-        <p>
-          <strong>Invoice Number:</strong>
-          ${invoiceNumber}
-          <br />
+  console.log(
+    `Gmail API invoice sent. Message ID: ${response.data.id}`
+  );
 
-          <strong>Order Amount:</strong>
-          ₹${Number(
-            order.totalAmount || 0
-          ).toFixed(2)}
-        </p>
-
-        <p>
-          Your invoice is attached to this email.
-        </p>
-
-        <p>
-          Regards,<br />
-
-          <strong>ACE Store</strong><br />
-
-          ACE / Sinhgad Institute
-        </p>
-      </div>
-    `,
-
-    attachments: [
-      {
-        filename: `${invoiceNumber}.pdf`,
-        content: invoice,
-      },
-    ],
-  });
+  return {
+    skipped: false,
+    messageId: response.data.id
+  };
 }

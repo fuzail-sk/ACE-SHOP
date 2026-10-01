@@ -2,7 +2,7 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import User from './models/User.js';
 
-const createAdmin = async () => {
+const createOrUpdateAdmin = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
 
@@ -15,32 +15,39 @@ const createAdmin = async () => {
       );
     }
 
-    const existingAdmin = await User.findOne({
-      email: adminEmail
+    let admin = await User.findOne({
+      email: adminEmail.toLowerCase()
     });
 
-    if (existingAdmin) {
-      console.log('Admin account already exists.');
-      process.exit(0);
+    if (admin) {
+      admin.name = 'ACE Senior';
+      admin.password = adminPassword;
+      admin.role = 'admin';
+
+      await admin.save();
+
+      console.log('Admin account updated successfully.');
+      console.log(`Email: ${admin.email}`);
+      console.log(`Role: ${admin.role}`);
+    } else {
+      admin = await User.create({
+        name: 'ACE Senior',
+        email: adminEmail,
+        password: adminPassword,
+        role: 'admin'
+      });
+
+      console.log('Admin account created successfully.');
+      console.log(`Email: ${admin.email}`);
+      console.log(`Role: ${admin.role}`);
     }
 
-    const admin = await User.create({
-      name: 'ACE Senior',
-      email: adminEmail,
-      password: adminPassword,
-      role: 'admin'
-    });
-
-    console.log('Admin account created successfully.');
-    console.log(`Email: ${admin.email}`);
-    console.log(`Role: ${admin.role}`);
-
+    await mongoose.disconnect();
     process.exit(0);
-
   } catch (error) {
-    console.error('Failed to create admin:', error.message);
+    console.error('Failed to create/update admin:', error.message);
     process.exit(1);
   }
 };
 
-createAdmin();
+createOrUpdateAdmin();
