@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import * as XLSX from 'xlsx';
 
 import Product from '../models/Product.js';
 import Order from '../models/Order.js';
@@ -317,3 +318,134 @@ export async function verifyPayment(
     next(err);
   }
 }
+// ==========================================
+// EXPORT ORDERS TO EXCEL
+// ==========================================
+export const exportOrders = async (req, res) => {
+  try {
+    const filter = req.query.filter || 'all';
+
+    let query = {};
+
+    // Export only paid orders when requested
+    if (filter === 'paid') {
+      query.paymentStatus = 'paid';
+    }
+
+    const orders = await Order.find(query)
+      .populate('items.product', 'name')
+      .sort({ createdAt: -1 });
+
+    const excelData = orders.map((order) => {
+      const item = order.items?.[0] || {};
+
+      return {
+        'Order ID': order._id?.toString() || '',
+        'Invoice Number': order.invoiceNumber || '',
+        'Customer Name':
+          order.customerDetails?.fullName || '',
+        'Email': order.customerEmail || '',
+        'Phone':
+          order.customerDetails?.phone || '',
+
+        'Product':
+          item.name ||
+          item.product?.name ||
+          '',
+
+        'Gender': item.gender || '',
+        'Neck Type': item.neckType || '',
+        'Size': item.size || '',
+
+        'Amount': order.totalAmount || 0,
+
+        'Payment Method':
+          order.paymentMethod || '',
+
+        'Payment Status':
+          order.paymentStatus || '',
+
+        'Order Status':
+          order.orderStatus || '',
+
+        'Order Date':
+          order.createdAt
+            ? new Date(order.createdAt).toLocaleString('en-IN')
+            : '',
+
+        'Payment Verified At':
+          order.paymentVerifiedAt
+            ? new Date(
+                order.paymentVerifiedAt
+              ).toLocaleString('en-IN')
+            : ''
+      };
+    });
+
+    const worksheet =
+      XLSX.utils.json_to_sheet(excelData);
+
+    // Set useful column widths
+    worksheet['!cols'] = [
+      { wch: 26 },
+      { wch: 28 },
+      { wch: 22 },
+      { wch: 30 },
+      { wch: 16 },
+      { wch: 22 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 25 },
+      { wch: 24 },
+      { wch: 24 }
+    ];
+
+    const workbook =
+      XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      'Orders'
+    );
+
+    const excelBuffer = XLSX.write(
+      workbook,
+      {
+        type: 'buffer',
+        bookType: 'xlsx'
+      }
+    );
+
+    const fileName =
+      filter === 'paid'
+        ? 'ACE-Paid-Orders.xlsx'
+        : 'ACE-All-Orders.xlsx';
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`
+    );
+
+    res.send(excelBuffer);
+
+  } catch (error) {
+    console.error(
+      'Export orders error:',
+      error
+    );
+
+    res.status(500).json({
+      message: 'Unable to export orders.'
+    });
+  }
+};

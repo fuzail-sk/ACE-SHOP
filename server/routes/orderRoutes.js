@@ -5,7 +5,8 @@ import {
   createOrder,
   myOrders,
   updateOrderStatus,
-  verifyPayment
+  verifyPayment,
+  exportOrders
 } from '../controllers/orderController.js';
 
 import { adminOnly, protect } from '../middleware/auth.js';
@@ -29,6 +30,13 @@ router.get('/mine', protect, myOrders);
 // ==========================================
 // ADMIN / SENIOR
 // ==========================================
+router.get(
+  '/export',
+  protect,
+  adminOnly,
+  exportOrders
+);
+
 router.get('/', protect, adminOnly, allOrders);
 
 
@@ -48,6 +56,8 @@ router.patch(
   adminOnly,
   verifyPayment
 );
+
+
 
 
 export default router;

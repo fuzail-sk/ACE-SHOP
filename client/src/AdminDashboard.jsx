@@ -11,22 +11,17 @@ export default function AdminDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
+  const [exportLoading, setExportLoading] = useState('');
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
 
   // ==========================================
   // CHECK ADMIN LOGIN
   // ==========================================
   useEffect(() => {
-    const storedUser = localStorage.getItem(
-      'ace_admin_user'
-    );
-
-    const token = localStorage.getItem(
-      'ace_admin_token'
-    );
+    const storedUser = localStorage.getItem('ace_admin_user');
+    const token = localStorage.getItem('ace_admin_token');
 
     if (!storedUser || !token) {
       navigate('/admin/login');
@@ -37,13 +32,8 @@ export default function AdminDashboard() {
       const parsedUser = JSON.parse(storedUser);
 
       if (parsedUser.role !== 'admin') {
-        localStorage.removeItem(
-          'ace_admin_user'
-        );
-
-        localStorage.removeItem(
-          'ace_admin_token'
-        );
+        localStorage.removeItem('ace_admin_user');
+        localStorage.removeItem('ace_admin_token');
 
         navigate('/admin/login');
         return;
@@ -51,26 +41,18 @@ export default function AdminDashboard() {
 
       setUser(parsedUser);
     } catch {
-      localStorage.removeItem(
-        'ace_admin_user'
-      );
-
-      localStorage.removeItem(
-        'ace_admin_token'
-      );
+      localStorage.removeItem('ace_admin_user');
+      localStorage.removeItem('ace_admin_token');
 
       navigate('/admin/login');
     }
   }, [navigate]);
 
-
   // ==========================================
   // FETCH ALL ORDERS
   // ==========================================
   const fetchOrders = async () => {
-    const token = localStorage.getItem(
-      'ace_admin_token'
-    );
+    const token = localStorage.getItem('ace_admin_token');
 
     if (!token) {
       navigate('/admin/login');
@@ -81,41 +63,32 @@ export default function AdminDashboard() {
       setLoading(true);
       setError('');
 
-      const response = await fetch(
-        `${API_URL}/orders`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      const response = await fetch(`${API_URL}/orders`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      );
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-          'Unable to fetch orders.'
+          data.message || 'Unable to fetch orders.'
         );
       }
 
       setOrders(data);
     } catch (err) {
-      console.error(
-        'Fetch orders error:',
-        err
-      );
+      console.error('Fetch orders error:', err);
 
       setError(
-        err.message ||
-        'Unable to load orders.'
+        err.message || 'Unable to load orders.'
       );
     } finally {
       setLoading(false);
     }
   };
-
 
   // ==========================================
   // LOAD ORDERS
@@ -126,30 +99,26 @@ export default function AdminDashboard() {
     }
   }, [user]);
 
-
   // ==========================================
   // LOGOUT
   // ==========================================
   const logout = () => {
-    localStorage.removeItem(
-      'ace_admin_token'
-    );
-
-    localStorage.removeItem(
-      'ace_admin_user'
-    );
+    localStorage.removeItem('ace_admin_token');
+    localStorage.removeItem('ace_admin_user');
 
     navigate('/admin/login');
   };
-
 
   // ==========================================
   // APPROVE PAYMENT
   // ==========================================
   const approvePayment = async (orderId) => {
-    const token = localStorage.getItem(
-      'ace_admin_token'
-    );
+    const token = localStorage.getItem('ace_admin_token');
+
+    if (!token) {
+      navigate('/admin/login');
+      return;
+    }
 
     const confirmed = window.confirm(
       'Are you sure you want to approve this payment?'
@@ -168,12 +137,10 @@ export default function AdminDashboard() {
         `${API_URL}/orders/${orderId}/payment`,
         {
           method: 'PATCH',
-
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
-
           body: JSON.stringify({
             action: 'approve'
           })
@@ -185,12 +152,13 @@ export default function AdminDashboard() {
       if (!response.ok) {
         throw new Error(
           data.message ||
-          'Unable to approve payment.'
+            'Unable to approve payment.'
         );
       }
 
       setSuccess(
-        'Payment approved successfully.'
+        data.message ||
+          'Payment approved successfully.'
       );
 
       await fetchOrders();
@@ -202,21 +170,23 @@ export default function AdminDashboard() {
 
       setError(
         err.message ||
-        'Unable to approve payment.'
+          'Unable to approve payment.'
       );
     } finally {
       setActionLoading('');
     }
   };
 
-
   // ==========================================
   // REJECT PAYMENT
   // ==========================================
   const rejectPayment = async (orderId) => {
-    const token = localStorage.getItem(
-      'ace_admin_token'
-    );
+    const token = localStorage.getItem('ace_admin_token');
+
+    if (!token) {
+      navigate('/admin/login');
+      return;
+    }
 
     const reason = window.prompt(
       'Enter the reason for rejecting this payment:'
@@ -247,12 +217,10 @@ export default function AdminDashboard() {
         `${API_URL}/orders/${orderId}/payment`,
         {
           method: 'PATCH',
-
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
-
           body: JSON.stringify({
             action: 'reject',
             rejectionReason
@@ -265,12 +233,13 @@ export default function AdminDashboard() {
       if (!response.ok) {
         throw new Error(
           data.message ||
-          'Unable to reject payment.'
+            'Unable to reject payment.'
         );
       }
 
       setSuccess(
-        'Payment rejected successfully.'
+        data.message ||
+          'Payment rejected successfully.'
       );
 
       await fetchOrders();
@@ -282,13 +251,94 @@ export default function AdminDashboard() {
 
       setError(
         err.message ||
-        'Unable to reject payment.'
+          'Unable to reject payment.'
       );
     } finally {
       setActionLoading('');
     }
   };
 
+  // ==========================================
+  // EXPORT ORDERS TO EXCEL
+  // ==========================================
+  const exportOrders = async (filter = 'all') => {
+    const token = localStorage.getItem(
+      'ace_admin_token'
+    );
+
+    if (!token) {
+      navigate('/admin/login');
+      return;
+    }
+
+    try {
+      setExportLoading(filter);
+      setError('');
+      setSuccess('');
+
+      const response = await fetch(
+        `${API_URL}/orders/export?filter=${filter}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        let message = 'Unable to export orders.';
+
+        try {
+          const data = await response.json();
+          message = data.message || message;
+        } catch {
+          // Response was not JSON
+        }
+
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+
+      link.href = url;
+
+      link.download =
+        filter === 'paid'
+          ? 'ACE-Paid-Orders.xlsx'
+          : 'ACE-All-Orders.xlsx';
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      setSuccess(
+        filter === 'paid'
+          ? 'Paid orders exported successfully.'
+          : 'All orders exported successfully.'
+      );
+    } catch (err) {
+      console.error(
+        'Export orders error:',
+        err
+      );
+
+      setError(
+        err.message ||
+          'Unable to export orders.'
+      );
+    } finally {
+      setExportLoading('');
+    }
+  };
 
   // ==========================================
   // DASHBOARD COUNTS
@@ -311,10 +361,15 @@ export default function AdminDashboard() {
   const totalRevenue =
     approvedOrders.reduce(
       (total, order) =>
-        total + Number(order.totalAmount || 0),
+        total +
+        Number(order.totalAmount || 0),
       0
     );
 
+  const processedOrders = orders.filter(
+    (order) =>
+      order.paymentStatus !== 'pending'
+  );
 
   // ==========================================
   // FORMAT DATE
@@ -329,7 +384,6 @@ export default function AdminDashboard() {
     );
   };
 
-
   // ==========================================
   // LOADING
   // ==========================================
@@ -340,7 +394,6 @@ export default function AdminDashboard() {
       </main>
     );
   }
-
 
   // ==========================================
   // DASHBOARD
@@ -367,7 +420,27 @@ export default function AdminDashboard() {
             style={styles.refreshButton}
             onClick={fetchOrders}
           >
-            Refresh
+            🔄 Refresh
+          </button>
+
+          <button
+            style={styles.refreshButton}
+            onClick={() => exportOrders('all')}
+            disabled={exportLoading !== ''}
+          >
+            {exportLoading === 'all'
+              ? 'Exporting...'
+              : '📥 Export All'}
+          </button>
+
+          <button
+            style={styles.refreshButton}
+            onClick={() => exportOrders('paid')}
+            disabled={exportLoading !== ''}
+          >
+            {exportLoading === 'paid'
+              ? 'Exporting...'
+              : '📥 Export Paid'}
           </button>
 
           <button
@@ -380,7 +453,6 @@ export default function AdminDashboard() {
         </div>
 
       </div>
-
 
       {/* WELCOME */}
       <section style={styles.welcome}>
@@ -400,7 +472,6 @@ export default function AdminDashboard() {
 
       </section>
 
-
       {/* MESSAGES */}
       {success && (
         <div style={styles.successMessage}>
@@ -413,7 +484,6 @@ export default function AdminDashboard() {
           {error}
         </div>
       )}
-
 
       {/* STATISTICS */}
       <section style={styles.statsGrid}>
@@ -428,7 +498,6 @@ export default function AdminDashboard() {
           </strong>
         </div>
 
-
         <div style={styles.statCard}>
           <span style={styles.statLabel}>
             Approved Orders
@@ -439,7 +508,6 @@ export default function AdminDashboard() {
           </strong>
         </div>
 
-
         <div style={styles.statCard}>
           <span style={styles.statLabel}>
             Rejected Payments
@@ -449,7 +517,6 @@ export default function AdminDashboard() {
             {rejectedOrders.length}
           </strong>
         </div>
-
 
         <div style={styles.statCard}>
           <span style={styles.statLabel}>
@@ -462,7 +529,6 @@ export default function AdminDashboard() {
         </div>
 
       </section>
-
 
       {/* PENDING ORDERS */}
       <section style={styles.section}>
@@ -484,7 +550,6 @@ export default function AdminDashboard() {
           </span>
 
         </div>
-
 
         {pendingOrders.length === 0 ? (
 
@@ -509,208 +574,264 @@ export default function AdminDashboard() {
 
           <div style={styles.ordersContainer}>
 
-            {pendingOrders.map((order) => (
+            {pendingOrders.map((order) => {
 
-              <div
-                key={order._id}
-                style={styles.orderCard}
-              >
+              const item =
+                order.items?.[0] || {};
 
-                {/* ORDER HEADER */}
-                <div style={styles.orderHeader}>
+              return (
+                <div
+                  key={order._id}
+                  style={styles.orderCard}
+                >
 
-                  <div>
+                  {/* ORDER HEADER */}
+                  <div style={styles.orderHeader}>
 
-                    <div style={styles.orderId}>
-                      Order #{order._id.slice(-8)}
-                    </div>
+                    <div>
 
-                    <div style={styles.orderDate}>
-                      {formatDate(
-                        order.createdAt
-                      )}
-                    </div>
-
-                  </div>
-
-                  <div style={styles.pendingBadge}>
-                    PAYMENT PENDING
-                  </div>
-
-                </div>
-
-
-                {/* CUSTOMER INFORMATION */}
-                <div style={styles.infoGrid}>
-
-                  <div style={styles.infoBlock}>
-                    <span style={styles.infoLabel}>
-                      CUSTOMER
-                    </span>
-
-                    <strong>
-                      {order.shippingAddress?.fullName ||
-                        'Customer'}
-                    </strong>
-                  </div>
-
-
-                  <div style={styles.infoBlock}>
-                    <span style={styles.infoLabel}>
-                      EMAIL
-                    </span>
-
-                    <strong>
-                      {order.customerEmail}
-                    </strong>
-                  </div>
-
-
-                  <div style={styles.infoBlock}>
-                    <span style={styles.infoLabel}>
-                      PHONE
-                    </span>
-
-                    <strong>
-                      {order.shippingAddress?.phone ||
-                        '-'}
-                    </strong>
-                  </div>
-
-
-                  <div style={styles.infoBlock}>
-                    <span style={styles.infoLabel}>
-                      TOTAL
-                    </span>
-
-                    <strong style={styles.amount}>
-                      ₹{Number(
-                        order.totalAmount || 0
-                      ).toFixed(2)}
-                    </strong>
-                  </div>
-
-                </div>
-
-
-                {/* ORDER ITEMS */}
-                <div style={styles.productsSection}>
-
-                  <span style={styles.infoLabel}>
-                    ORDER ITEMS
-                  </span>
-
-                  {order.items?.map(
-                    (item, index) => (
-
-                      <div
-                        key={index}
-                        style={styles.productRow}
-                      >
-
-                        <div>
-                          <strong>
-                            {item.name}
-                          </strong>
-
-                          <span
-                            style={styles.itemMeta}
-                          >
-                            × {item.quantity}
-                          </span>
-                        </div>
-
-                        <strong>
-                          ₹{(
-                            Number(item.price || 0) *
-                            Number(item.quantity || 0)
-                          ).toFixed(2)}
-                        </strong>
-
+                      <div style={styles.orderId}>
+                        Order #
+                        {order._id.slice(-8)}
                       </div>
 
-                    )
-                  )}
+                      <div style={styles.orderDate}>
+                        {formatDate(
+                          order.createdAt
+                        )}
+                      </div>
 
-                </div>
+                    </div>
 
+                    <div
+                      style={
+                        styles.pendingBadge
+                      }
+                    >
+                      PAYMENT PENDING
+                    </div>
 
-                {/* SHIPPING ADDRESS */}
-                <div style={styles.addressSection}>
+                  </div>
 
-                  <span style={styles.infoLabel}>
-                    SHIPPING ADDRESS
-                  </span>
+                  {/* CUSTOMER INFORMATION */}
+                  <div style={styles.infoGrid}>
 
-                  <p style={styles.addressText}>
-                    {order.shippingAddress?.address}
-                    <br />
+                    <div style={styles.infoBlock}>
+                      <span
+                        style={styles.infoLabel}
+                      >
+                        CUSTOMER
+                      </span>
 
-                    {order.shippingAddress?.city},{' '}
-                    {order.shippingAddress?.state}
-                    {' - '}
-                    {order.shippingAddress?.postalCode}
-                  </p>
+                      <strong>
+                        {order.customerDetails
+                          ?.fullName ||
+                          'Customer'}
+                      </strong>
+                    </div>
 
-                </div>
+                    <div style={styles.infoBlock}>
+                      <span
+                        style={styles.infoLabel}
+                      >
+                        EMAIL
+                      </span>
 
+                      <strong>
+                        {order.customerEmail ||
+                          '-'}
+                      </strong>
+                    </div>
 
-                {/* ACTION BUTTONS */}
-                <div style={styles.actions}>
+                    <div style={styles.infoBlock}>
+                      <span
+                        style={styles.infoLabel}
+                      >
+                        PHONE
+                      </span>
 
-                  <button
-                    style={{
-                      ...styles.rejectButton,
-                      opacity:
-                        actionLoading === order._id
-                          ? 0.6
-                          : 1
-                    }}
-                    onClick={() =>
-                      rejectPayment(order._id)
-                    }
-                    disabled={
-                      actionLoading === order._id
-                    }
+                      <strong>
+                        {order.customerDetails
+                          ?.phone ||
+                          '-'}
+                      </strong>
+                    </div>
+
+                    <div style={styles.infoBlock}>
+                      <span
+                        style={styles.infoLabel}
+                      >
+                        TOTAL
+                      </span>
+
+                      <strong
+                        style={styles.amount}
+                      >
+                        ₹
+                        {Number(
+                          order.totalAmount || 0
+                        ).toFixed(2)}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                  {/* PRODUCT INFORMATION */}
+                  <div
+                    style={styles.productsSection}
                   >
-                    {actionLoading === order._id
-                      ? 'Processing...'
-                      : '✕ Reject Payment'}
-                  </button>
 
+                    <span
+                      style={styles.infoLabel}
+                    >
+                      ORDER DETAILS
+                    </span>
 
-                  <button
-                    style={{
-                      ...styles.approveButton,
-                      opacity:
-                        actionLoading === order._id
-                          ? 0.6
-                          : 1
-                    }}
-                    onClick={() =>
-                      approvePayment(order._id)
-                    }
-                    disabled={
-                      actionLoading === order._id
-                    }
-                  >
-                    {actionLoading === order._id
-                      ? 'Processing...'
-                      : '✓ Approve Payment'}
-                  </button>
+                    <div
+                      style={styles.productDetails}
+                    >
+
+                      <div>
+                        <span
+                          style={
+                            styles.detailLabel
+                          }
+                        >
+                          PRODUCT
+                        </span>
+
+                        <strong>
+                          {item.name ||
+                            'ACE T-Shirt'}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span
+                          style={
+                            styles.detailLabel
+                          }
+                        >
+                          GENDER
+                        </span>
+
+                        <strong>
+                          {item.gender || '-'}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span
+                          style={
+                            styles.detailLabel
+                          }
+                        >
+                          NECK TYPE
+                        </span>
+
+                        <strong>
+                          {item.neckType ||
+                            'Collar'}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span
+                          style={
+                            styles.detailLabel
+                          }
+                        >
+                          SIZE
+                        </span>
+
+                        <strong>
+                          {item.size || '-'}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span
+                          style={
+                            styles.detailLabel
+                          }
+                        >
+                          PAYMENT
+                        </span>
+
+                        <strong>
+                          {order.paymentMethod ||
+                            'UPI'}
+                        </strong>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* ACTION BUTTONS */}
+                  <div style={styles.actions}>
+
+                    <button
+                      style={{
+                        ...styles.rejectButton,
+                        opacity:
+                          actionLoading ===
+                          order._id
+                            ? 0.6
+                            : 1
+                      }}
+                      onClick={() =>
+                        rejectPayment(
+                          order._id
+                        )
+                      }
+                      disabled={
+                        actionLoading ===
+                        order._id
+                      }
+                    >
+                      {actionLoading ===
+                      order._id
+                        ? 'Processing...'
+                        : '✕ Reject Payment'}
+                    </button>
+
+                    <button
+                      style={{
+                        ...styles.approveButton,
+                        opacity:
+                          actionLoading ===
+                          order._id
+                            ? 0.6
+                            : 1
+                      }}
+                      onClick={() =>
+                        approvePayment(
+                          order._id
+                        )
+                      }
+                      disabled={
+                        actionLoading ===
+                        order._id
+                      }
+                    >
+                      {actionLoading ===
+                      order._id
+                        ? 'Processing...'
+                        : '✓ Approve Payment'}
+                    </button>
+
+                  </div>
 
                 </div>
-
-              </div>
-
-            ))}
+              );
+            })}
 
           </div>
 
         )}
 
       </section>
-
 
       {/* PROCESSED ORDERS */}
       <section style={styles.section}>
@@ -729,11 +850,7 @@ export default function AdminDashboard() {
 
         </div>
 
-
-        {orders.filter(
-          (order) =>
-            order.paymentStatus !== 'pending'
-        ).length === 0 ? (
+        {processedOrders.length === 0 ? (
 
           <div style={styles.emptyCard}>
             <p>
@@ -745,22 +862,25 @@ export default function AdminDashboard() {
 
           <div style={styles.historyTable}>
 
+            {/* TABLE HEADER */}
             <div style={styles.tableHeader}>
+
               <span>ORDER</span>
               <span>CUSTOMER</span>
+              <span>PRODUCT</span>
               <span>AMOUNT</span>
               <span>PAYMENT</span>
               <span>STATUS</span>
+
             </div>
 
+            {/* TABLE ROWS */}
+            {processedOrders.map((order) => {
 
-            {orders
-              .filter(
-                (order) =>
-                  order.paymentStatus !== 'pending'
-              )
-              .map((order) => (
+              const item =
+                order.items?.[0] || {};
 
+              return (
                 <div
                   key={order._id}
                   style={styles.tableRow}
@@ -771,18 +891,26 @@ export default function AdminDashboard() {
                   </span>
 
                   <span>
-                    {order.shippingAddress?.fullName ||
+                    {order.customerDetails
+                      ?.fullName ||
                       'Customer'}
                   </span>
 
                   <span>
-                    ₹{Number(
+                    {item.name ||
+                      'ACE T-Shirt'}
+                  </span>
+
+                  <span>
+                    ₹
+                    {Number(
                       order.totalAmount || 0
                     ).toFixed(2)}
                   </span>
 
                   <span>
-                    {order.paymentStatus === 'paid'
+                    {order.paymentStatus ===
+                    'paid'
                       ? 'PAID'
                       : 'FAILED'}
                   </span>
@@ -792,8 +920,8 @@ export default function AdminDashboard() {
                   </span>
 
                 </div>
-
-              ))}
+              );
+            })}
 
           </div>
 
@@ -805,12 +933,10 @@ export default function AdminDashboard() {
   );
 }
 
-
 // ==========================================
 // STYLES
 // ==========================================
 const styles = {
-
   page: {
     minHeight: '100vh',
     background: '#f5f5f5',
@@ -837,7 +963,8 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottom: '1px solid #ddd'
+    borderBottom: '1px solid #ddd',
+    gap: '20px'
   },
 
   brand: {
@@ -854,7 +981,9 @@ const styles = {
 
   topActions: {
     display: 'flex',
-    gap: '10px'
+    gap: '10px',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end'
   },
 
   refreshButton: {
@@ -1015,7 +1144,8 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingBottom: '18px',
-    borderBottom: '1px solid #eee'
+    borderBottom: '1px solid #eee',
+    gap: '15px'
   },
 
   orderId: {
@@ -1067,26 +1197,29 @@ const styles = {
     paddingTop: '18px'
   },
 
-  productRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '10px 0',
-    borderBottom: '1px solid #f0f0f0'
+  productDetails: {
+    display: 'grid',
+    gridTemplateColumns:
+      'repeat(auto-fit, minmax(140px, 1fr))',
+    gap: '18px',
+    marginTop: '15px'
   },
 
-  itemMeta: {
-    color: '#777',
-    marginLeft: '8px'
+  productDetails: {
+    display: 'grid',
+    gridTemplateColumns:
+      'repeat(auto-fit, minmax(140px, 1fr))',
+    gap: '18px',
+    marginTop: '15px'
   },
 
-  addressSection: {
-    paddingTop: '18px'
-  },
-
-  addressText: {
-    marginTop: '8px',
-    lineHeight: '1.6',
-    color: '#555'
+  detailLabel: {
+    display: 'block',
+    fontSize: '10px',
+    color: '#888',
+    fontWeight: '800',
+    letterSpacing: '1px',
+    marginBottom: '5px'
   },
 
   actions: {
@@ -1095,7 +1228,8 @@ const styles = {
     gap: '10px',
     marginTop: '22px',
     paddingTop: '20px',
-    borderTop: '1px solid #eee'
+    borderTop: '1px solid #eee',
+    flexWrap: 'wrap'
   },
 
   rejectButton: {
@@ -1122,13 +1256,14 @@ const styles = {
     background: '#fff',
     border: '1px solid #ddd',
     borderRadius: '12px',
-    overflow: 'hidden'
+    overflow: 'auto'
   },
 
   tableHeader: {
     display: 'grid',
     gridTemplateColumns:
-      '1fr 1.5fr 1fr 1fr 1.5fr',
+      '1fr 1.5fr 1.5fr 1fr 1fr 1.5fr',
+    minWidth: '850px',
     gap: '15px',
     padding: '15px 20px',
     background: '#f0f0f0',
@@ -1140,12 +1275,12 @@ const styles = {
   tableRow: {
     display: 'grid',
     gridTemplateColumns:
-      '1fr 1.5fr 1fr 1fr 1.5fr',
+      '1fr 1.5fr 1.5fr 1fr 1fr 1.5fr',
+    minWidth: '850px',
     gap: '15px',
     padding: '17px 20px',
     borderTop: '1px solid #eee',
     fontSize: '13px',
     alignItems: 'center'
   }
-
 };
