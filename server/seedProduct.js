@@ -6,7 +6,7 @@ const product = {
   name: 'ACE T-Shirt',
   description:
     'The official ACE T-Shirt — clean, minimal and made for the community.',
-  price: 799,
+  price: 340,
   image: '/ace-tshirt-placeholder.svg',
   category: 'ACE Merchandise',
   sizes: ['S', 'M', 'L', 'XL', 'XXL'],
