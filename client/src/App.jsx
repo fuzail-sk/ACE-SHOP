@@ -1154,7 +1154,7 @@ function Checkout({ cart }) {
           onClick={handleSubmitOrder}
           disabled={submitting || !paymentScreenshot}
         >
-          {"Submit Order"}
+          {submitting ? "Submitting Order..." : "Submit Order"}
         </button>
       </aside>
     </main>
