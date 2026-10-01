@@ -16,7 +16,7 @@ const ALLOWED_ORDER_STATUSES = [
 ];
 
 // ==========================================
-// VALIDATION FUNCTIONS
+// VALIDATION
 // ==========================================
 
 function validateFullName(name) {
@@ -34,13 +34,11 @@ function validateFullName(name) {
     return 'Full name must not exceed 60 characters';
   }
 
-  // Allows letters, spaces, apostrophes, dots and hyphens.
-  // Rejects numbers and invalid symbols.
-  const namePattern =
+  const pattern =
     /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ .'-]*$/u;
 
-  if (!namePattern.test(value)) {
-    return 'Full name can contain only letters, spaces, apostrophes, dots and hyphens';
+  if (!pattern.test(value)) {
+    return 'Full name contains invalid characters';
   }
 
   return '';
@@ -57,11 +55,11 @@ function validateEmail(email) {
     return 'Email address is too long';
   }
 
-  const emailPattern =
+  const pattern =
     /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 
-  if (!emailPattern.test(value)) {
-    return 'Please enter a valid email address';
+  if (!pattern.test(value)) {
+    return 'Invalid email address';
   }
 
   return '';
@@ -79,7 +77,7 @@ function validatePhone(phone) {
   }
 
   if (!/^[6-9]\d{9}$/.test(value)) {
-    return 'Please enter a valid Indian mobile number';
+    return 'Invalid Indian mobile number';
   }
 
   return '';
@@ -97,27 +95,16 @@ export async function createOrder(req, res, next) {
       items
     } = req.body;
 
-    // ==========================================
-    // CUSTOMER EMAIL VALIDATION
-    // ==========================================
-
-    const emailError =
-      validateEmail(customerEmail);
-
+    const emailError = validateEmail(customerEmail);
     if (emailError) {
       return res.status(400).json({
         message: emailError
       });
     }
 
-    // ==========================================
-    // CUSTOMER DETAILS VALIDATION
-    // ==========================================
-
-    const fullNameError =
-      validateFullName(
-        customerDetails?.fullName
-      );
+    const fullNameError = validateFullName(
+      customerDetails?.fullName
+    );
 
     if (fullNameError) {
       return res.status(400).json({
@@ -125,10 +112,9 @@ export async function createOrder(req, res, next) {
       });
     }
 
-    const phoneError =
-      validatePhone(
-        customerDetails?.phone
-      );
+    const phoneError = validatePhone(
+      customerDetails?.phone
+    );
 
     if (phoneError) {
       return res.status(400).json({
@@ -136,14 +122,7 @@ export async function createOrder(req, res, next) {
       });
     }
 
-    // ==========================================
-    // ORDER ITEMS VALIDATION
-    // ==========================================
-
-    if (
-      !Array.isArray(items) ||
-      items.length !== 1
-    ) {
+    if (!Array.isArray(items) || items.length !== 1) {
       return res.status(400).json({
         message:
           'Order must contain exactly one ACE T-Shirt'
@@ -158,24 +137,12 @@ export async function createOrder(req, res, next) {
     ) {
       return res.status(400).json({
         message:
-          'Product and T-shirt size are required'
+          'Product and size are required'
       });
     }
 
-    // ==========================================
-    // STYLE VALIDATION
-    // ==========================================
-
-    if (item.neckType !== 'Collar') {
-      return res.status(400).json({
-        message:
-          'Only Collar style is available'
-      });
-    }
-
-    // ==========================================
-    // FIND PRODUCT
-    // ==========================================
+    // ACE STORE currently offers Collar only.
+    const neckType = 'Collar';
 
     const product = await Product.findOne({
       _id: item.product,
@@ -188,16 +155,12 @@ export async function createOrder(req, res, next) {
       });
     }
 
-    // ==========================================
-    // SIZE VALIDATION
-    // ==========================================
-
-    const selectedSize =
-      String(item.size).trim();
+    const selectedSize = String(
+      item.size
+    ).trim();
 
     if (
       !Array.isArray(product.sizes) ||
-      !product.sizes.length ||
       !product.sizes.includes(selectedSize)
     ) {
       return res.status(400).json({
@@ -206,23 +169,15 @@ export async function createOrder(req, res, next) {
       });
     }
 
-    // ==========================================
-    // PRICE
-    // ==========================================
-
     const totalAmount = Number(
-      product.price.toFixed(2)
+      Number(product.price).toFixed(2)
     );
-
-    // ==========================================
-    // CREATE ORDER
-    // ==========================================
 
     const order = await Order.create({
       user: req.user?._id,
 
       customerEmail:
-        customerEmail.trim(),
+        customerEmail.trim().toLowerCase(),
 
       customerDetails: {
         fullName:
@@ -237,7 +192,7 @@ export async function createOrder(req, res, next) {
           product: product._id,
           name: product.name,
           price: product.price,
-          neckType: 'Collar',
+          neckType,
           size: selectedSize
         }
       ],
@@ -252,7 +207,7 @@ export async function createOrder(req, res, next) {
         'pending_payment_verification'
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       order,
 
       message:
@@ -268,17 +223,19 @@ export async function createOrder(req, res, next) {
 // MY ORDERS
 // ==========================================
 
-export async function myOrders(req, res, next) {
+export async function myOrders(
+  req,
+  res,
+  next
+) {
   try {
-    const orders =
-      await Order.find({
-        user: req.user._id
-      }).sort({
-        createdAt: -1
-      });
+    const orders = await Order.find({
+      user: req.user._id
+    }).sort({
+      createdAt: -1
+    });
 
     res.json(orders);
-
   } catch (err) {
     next(err);
   }
@@ -288,24 +245,26 @@ export async function myOrders(req, res, next) {
 // ALL ORDERS
 // ==========================================
 
-export async function allOrders(req, res, next) {
+export async function allOrders(
+  req,
+  res,
+  next
+) {
   try {
-    const orders =
-      await Order.find()
-        .populate(
-          'user',
-          'name email'
-        )
-        .populate(
-          'paymentVerifiedBy',
-          'name email'
-        )
-        .sort({
-          createdAt: -1
-        });
+    const orders = await Order.find()
+      .populate(
+        'user',
+        'name email'
+      )
+      .populate(
+        'paymentVerifiedBy',
+        'name email'
+      )
+      .sort({
+        createdAt: -1
+      });
 
     res.json(orders);
-
   } catch (err) {
     next(err);
   }
@@ -321,9 +280,7 @@ export async function updateOrderStatus(
   next
 ) {
   try {
-    const {
-      orderStatus
-    } = req.body;
+    const { orderStatus } = req.body;
 
     if (
       !ALLOWED_ORDER_STATUSES.includes(
@@ -331,8 +288,7 @@ export async function updateOrderStatus(
       )
     ) {
       return res.status(400).json({
-        message:
-          'Invalid order status'
+        message: 'Invalid order status'
       });
     }
 
@@ -348,8 +304,7 @@ export async function updateOrderStatus(
 
     if (!order) {
       return res.status(404).json({
-        message:
-          'Order not found'
+        message: 'Order not found'
       });
     }
 
@@ -387,14 +342,11 @@ export async function verifyPayment(
     }
 
     const order =
-      await Order.findById(
-        req.params.id
-      );
+      await Order.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({
-        message:
-          'Order not found'
+        message: 'Order not found'
       });
     }
 
@@ -407,16 +359,14 @@ export async function verifyPayment(
       });
     }
 
-    // ==========================================
-    // REJECT PAYMENT
-    // ==========================================
+    // ========================================
+    // REJECT
+    // ========================================
 
     if (action === 'reject') {
-      order.paymentStatus =
-        'failed';
+      order.paymentStatus = 'failed';
 
-      order.orderStatus =
-        'cancelled';
+      order.orderStatus = 'cancelled';
 
       order.paymentVerifiedAt =
         new Date();
@@ -432,15 +382,14 @@ export async function verifyPayment(
 
       return res.json({
         order,
-
         message:
           'Payment rejected.'
       });
     }
 
-    // ==========================================
-    // APPROVE PAYMENT
-    // ==========================================
+    // ========================================
+    // APPROVE
+    // ========================================
 
     order.invoiceNumber =
       `ACE-${Date.now()}-${crypto
@@ -448,11 +397,9 @@ export async function verifyPayment(
         .toString('hex')
         .toUpperCase()}`;
 
-    order.paymentStatus =
-      'paid';
+    order.paymentStatus = 'paid';
 
-    order.orderStatus =
-      'processing';
+    order.orderStatus = 'processing';
 
     order.paymentVerifiedAt =
       new Date();
@@ -465,35 +412,72 @@ export async function verifyPayment(
 
     await order.save();
 
-    // ==========================================
+    // ========================================
     // GENERATE INVOICE
-    // ==========================================
+    // ========================================
 
-    const invoice =
-      await createInvoice(order);
+    let invoice = null;
+    let invoiceGenerated = false;
 
-    // ==========================================
-    // SEND EMAIL
-    // ==========================================
+    try {
+      invoice =
+        await createInvoice(order);
 
-    const emailResult =
-      await sendOrderEmail({
-        to: order.customerEmail,
-        order,
-        invoice
-      });
+      invoiceGenerated = true;
+
+    } catch (invoiceError) {
+      console.error(
+        'Invoice generation failed:',
+        invoiceError
+      );
+    }
+
+    // ========================================
+    // RESPOND IMMEDIATELY
+    // ========================================
 
     res.json({
       order,
 
-      emailSent:
-        !emailResult?.skipped,
+      invoiceGenerated,
+
+      emailSent: false,
 
       message:
-        emailResult?.skipped
-          ? 'Payment approved and invoice generated. Email is not configured yet.'
-          : 'Payment approved, invoice generated and email sent.'
+        invoiceGenerated
+          ? 'Payment approved and order moved to processing.'
+          : 'Payment approved and order moved to processing. Invoice generation failed.'
     });
+
+    // ========================================
+    // SEND EMAIL IN BACKGROUND
+    // ========================================
+
+    if (invoice) {
+      sendOrderEmail({
+        to: order.customerEmail,
+        order,
+        invoice
+      })
+        .then((emailResult) => {
+          if (emailResult?.skipped) {
+            console.log(
+              'Invoice email skipped:',
+              emailResult.reason
+            );
+          } else {
+            console.log(
+              `Invoice email sent to ${order.customerEmail}`
+            );
+          }
+        })
+        .catch((emailError) => {
+          console.error(
+            'Invoice email failed:',
+            emailError
+          );
+        });
+    }
 
   } catch (err) {
     next(err);
@@ -512,7 +496,7 @@ export const exportOrders = async (
     const filter =
       req.query.filter || 'all';
 
-    let query = {};
+    const query = {};
 
     if (filter === 'paid') {
       query.paymentStatus = 'paid';
@@ -556,9 +540,8 @@ export const exportOrders = async (
             item.product?.name ||
             '',
 
-          'Style':
-            item.neckType ||
-            'Collar',
+          'Neck Type':
+            item.neckType || '',
 
           'Size':
             item.size || '',
