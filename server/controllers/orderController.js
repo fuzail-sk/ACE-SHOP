@@ -488,8 +488,7 @@ export async function verifyPayment(
     order.paymentStatus =
       'paid';
 
-    order.orderStatus =
-      'processing';
+   order.orderStatus = 'accepted';
 
     order.paymentVerifiedAt =
       new Date();
